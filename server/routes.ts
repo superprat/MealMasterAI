@@ -3,8 +3,19 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertRecipeSchema, insertMealPlanSchema, insertWeeklyTargetsSchema } from "../shared/schema";
 import { generateMealPlanSuggestions, generateNewRecipe, generateAlternativeSuggestion } from "./services/anthropic";
-import { handleLogin, handleLogout } from "./auth-middleware";
+import { handleLogin, handleLogout, loginRateLimit } from "./auth-middleware";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { z } from "zod";
+
+// AI calls cost money; cap them per family (falls back to IP before login)
+const aiRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => `family:${(req as any).familyId ?? ipKeyGenerator(req.ip ?? "")}`,
+  message: { message: "Too many AI requests. Try again later." },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for deployment monitoring
@@ -17,7 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  app.post('/api/auth/login', handleLogin);
+  app.post('/api/auth/login', loginRateLimit, handleLogin);
+  app.use('/api/ai', aiRateLimit);
   app.post('/api/auth/logout', handleLogout);
   
   // Current session info
@@ -96,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(recipe);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid recipe data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid recipe data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to create recipe" });
     }
@@ -113,7 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recipe);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid recipe data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid recipe data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to update recipe" });
     }
@@ -154,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors.push({
             index: i,
             recipe: recipes[i],
-            error: error instanceof z.ZodError ? error.errors : "Invalid recipe data"
+            error: error instanceof z.ZodError ? error.issues : "Invalid recipe data"
           });
         }
       }
@@ -202,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(mealPlan);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid meal plan data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid meal plan data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to create meal plan" });
     }
@@ -292,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(targets);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid targets data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid targets data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to update targets" });
     }

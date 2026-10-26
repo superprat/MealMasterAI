@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { recipes, families, weeklyTargets } from "../shared/schema";
+import { hashPassword } from "./auth-middleware";
 
 async function seedDatabase() {
   console.log("Seeding database with families and sample recipes...");
@@ -20,7 +21,7 @@ async function seedDatabase() {
   const createdFamilies = [];
   for (const family of familiesList) {
     try {
-      const result = await db.insert(families).values(family).returning();
+      const result = await db.insert(families).values({ ...family, password: await hashPassword(family.password) }).returning();
       createdFamilies.push(result[0]);
       console.log(`Created family: ${family.name}`);
     } catch (error) {

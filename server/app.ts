@@ -1,9 +1,24 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { requirePassword } from "./auth-middleware";
 import { log } from "./log";
+
+// Also applied to static files on Vercel (script/build-vercel.mjs)
+export const CONTENT_SECURITY_POLICY = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+  fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+  imgSrc: ["'self'", "data:", "https:"],
+  connectSrc: ["'self'"],
+  objectSrc: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  frameAncestors: ["'none'"],
+};
 
 // Builds the Express app (API, sessions, auth). Shared by the long-running
 // server (server/index.ts) and the Vercel serverless function (api/index.ts).
@@ -24,11 +39,20 @@ export async function createApp() {
     }
   }
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction && !process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET must be set in production');
+  }
+
   const app = express();
   // Hosting platforms terminate HTTPS at a proxy; trust it so secure cookies work
   app.set("trust proxy", 1);
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
+  app.disable("x-powered-by");
+  // Security headers. The CSP is production-only because Vite's dev server injects inline scripts.
+  app.use(helmet({
+    contentSecurityPolicy: isProduction ? { directives: CONTENT_SECURITY_POLICY } : false,
+  }));
+  app.use(express.json({ limit: "100kb" }));
 
   // Configure session store
   const PgSession = ConnectPgSimple(session);
@@ -57,12 +81,7 @@ export async function createApp() {
 
   // Configure session middleware
   app.use(session({
-    secret: process.env.SESSION_SECRET || (() => {
-      if (process.env.NODE_ENV === 'production') {
-        console.warn('SESSION_SECRET is not set - using an insecure default. Set it in your host settings.');
-      }
-      return 'meal-planner-secret-key';
-    })(),
+    secret: process.env.SESSION_SECRET || 'local-dev-only-secret',
     store: createSessionStore(),
     resave: false,
     saveUninitialized: false,
@@ -124,7 +143,8 @@ export async function createApp() {
       });
     }
 
-    res.status(status).json({ message });
+    // Don't leak internal error details (SQL, stack messages) to the browser
+    res.status(status).json({ message: isProduction && status >= 500 ? "Internal Server Error" : message });
 
     // Don't throw in production to prevent server crashes
     if (process.env.NODE_ENV !== 'production') {

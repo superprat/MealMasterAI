@@ -2,11 +2,38 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Recipe, MealType, WeeklyMealPlan, DailyMacros } from '../../shared/schema';
 
 // Override with ANTHROPIC_MODEL to pin a different Claude model
-const DEFAULT_MODEL_STR = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+const DEFAULT_MODEL_STR = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "",
-});
+// Created on first use so the server still starts when no API key is configured
+let client: Anthropic | undefined;
+function getClient(): Anthropic {
+  client ??= new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.CLAUDE_API_KEY,
+  });
+  return client;
+}
+
+// Sends one prompt and returns the answer text. Haiku 5.5 thinks by default, so the
+// response can start with thinking blocks and thinking counts toward max_tokens.
+async function askClaude(prompt: string): Promise<string> {
+  const response = await getClient().messages.create({
+    model: DEFAULT_MODEL_STR,
+    max_tokens: 16000,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  if (response.stop_reason === 'refusal') {
+    throw new Error(`Claude declined the request (${response.stop_details?.category ?? 'no category'})`);
+  }
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('Claude response was cut off at max_tokens');
+  }
+
+  return response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
+}
 
 export interface MealPlanRequest {
   currentWeekPlan: WeeklyMealPlan;
@@ -114,13 +141,7 @@ Respond with EXACTLY this JSON format:
 
 If using an existing recipe, set newRecipe to null.`;
 
-    const response = await anthropic.messages.create({
-      model: DEFAULT_MODEL_STR,
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const textResponse = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const textResponse = await askClaude(prompt);
     const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
@@ -228,15 +249,7 @@ Return format - exactly ${slotsToFill.length} entries:
 
 Generate exactly 10 meal suggestions for the next empty meal slots, ordered by priority (earliest meals first).`;
 
-    const response = await anthropic.messages.create({
-      model: DEFAULT_MODEL_STR,
-      max_tokens: 4000,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
-    });
-
-    const responseText = (response.content[0] as any).text;
+    const responseText = await askClaude(prompt);
     
     // Extract JSON from response - handle cases where Claude adds explanatory text
     let jsonText = responseText;
@@ -320,15 +333,7 @@ Respond with a JSON object in this exact format:
 
 Make sure the recipe is realistic, delicious, and nutritionally balanced.`;
 
-    const response = await anthropic.messages.create({
-      model: DEFAULT_MODEL_STR,
-      max_tokens: 1000,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
-    });
-
-    const responseText = (response.content[0] as any).text;
+    const responseText = await askClaude(prompt);
     
     // Clean up response text - remove markdown code blocks if present
     const cleanedText = responseText

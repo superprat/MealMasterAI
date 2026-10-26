@@ -29,7 +29,7 @@ On macOS, port 5000 is often taken by AirPlay Receiver. Set `PORT=5050` if it is
 | `DATABASE_URL` | yes | Postgres connection string. Neon URLs use Neon's driver; anything else uses node-postgres. |
 | `SESSION_SECRET` | yes in production | Long random string used to sign login cookies. |
 | `ANTHROPIC_API_KEY` | for AI features | Enables “Generate Plan” and AI recipe macros. |
-| `ANTHROPIC_MODEL` | no | Overrides the Claude model (default `claude-sonnet-5-5`). |
+| `ANTHROPIC_MODEL` | no | Overrides the Claude model (default `claude-haiku-5-5`). |
 | `SEED_FAMILIES` | no | `Name:password,Other:password2`. Used only by the seed script. |
 | `PORT` | no | Defaults to 5000. |
 

@@ -60,6 +60,21 @@ writeFileSync(
     {
       version: 3,
       routes: [
+        // Security headers for static files (the API sets its own via helmet; keep the CSP in sync with server/app.ts)
+        {
+          src: "^/(?!api/)(.*)$",
+          headers: {
+            "Content-Security-Policy":
+              "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+              "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; " +
+              "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Referrer-Policy": "no-referrer",
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          },
+          continue: true,
+        },
         { src: "^/api/(.*)$", dest: "/api" },
         { src: "^/health$", dest: "/api" },
         { handle: "filesystem" },
