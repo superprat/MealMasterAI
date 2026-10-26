@@ -14,9 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Cal Sans', 'Inter', 'system-ui', 'sans-serif'],
-        mono: ['Geist Mono', 'JetBrains Mono', 'Monaco', 'monospace'],
+        sans: ['Figtree', 'system-ui', 'sans-serif'],
+        display: ['"Young Serif"', 'Georgia', 'serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -24,39 +23,51 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "oklch(var(--background) / <alpha-value>)",
+        foreground: "oklch(var(--foreground) / <alpha-value>)",
         card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT: "oklch(var(--card) / <alpha-value>)",
+          foreground: "oklch(var(--card-foreground) / <alpha-value>)",
         },
         popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT: "oklch(var(--popover) / <alpha-value>)",
+          foreground: "oklch(var(--popover-foreground) / <alpha-value>)",
         },
         primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT: "oklch(var(--primary) / <alpha-value>)",
+          foreground: "oklch(var(--primary-foreground) / <alpha-value>)",
         },
         secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT: "oklch(var(--secondary) / <alpha-value>)",
+          foreground: "oklch(var(--secondary-foreground) / <alpha-value>)",
         },
         muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT: "oklch(var(--muted) / <alpha-value>)",
+          foreground: "oklch(var(--muted-foreground) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT: "oklch(var(--accent) / <alpha-value>)",
+          foreground: "oklch(var(--accent-foreground) / <alpha-value>)",
         },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT: "oklch(var(--destructive) / <alpha-value>)",
+          foreground: "oklch(var(--destructive-foreground) / <alpha-value>)",
         },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        border: "oklch(var(--border) / <alpha-value>)",
+        input: "oklch(var(--input) / <alpha-value>)",
+        ring: "oklch(var(--ring) / <alpha-value>)",
+        "on-track": "oklch(var(--on-track) / <alpha-value>)",
+        over: "oklch(var(--over) / <alpha-value>)",
+        meal: {
+          breakfast: "oklch(var(--meal-breakfast) / <alpha-value>)",
+          "breakfast-soft": "oklch(var(--meal-breakfast-soft) / <alpha-value>)",
+          lunch: "oklch(var(--meal-lunch) / <alpha-value>)",
+          "lunch-soft": "oklch(var(--meal-lunch-soft) / <alpha-value>)",
+          snack: "oklch(var(--meal-snack) / <alpha-value>)",
+          "snack-soft": "oklch(var(--meal-snack-soft) / <alpha-value>)",
+          dinner: "oklch(var(--meal-dinner) / <alpha-value>)",
+          "dinner-soft": "oklch(var(--meal-dinner-soft) / <alpha-value>)",
+        },
         chart: {
           "1": "var(--chart-1)",
           "2": "var(--chart-2)",
@@ -81,12 +92,12 @@ export default {
             height: "0",
           },
           to: {
-            height: "var(--radix-accordion-content-height)",
+            height: "oklch(var(--radix-accordion-content-height) / <alpha-value>)",
           },
         },
         "accordion-up": {
           from: {
-            height: "var(--radix-accordion-content-height)",
+            height: "oklch(var(--radix-accordion-content-height) / <alpha-value>)",
           },
           to: {
             height: "0",

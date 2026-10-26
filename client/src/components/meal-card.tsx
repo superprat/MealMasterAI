@@ -1,17 +1,17 @@
-import { createPortal } from "react-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ToastAction } from "@/components/ui/toast";
 import { Plus, X, Search } from "lucide-react";
 import { Recipe, MealType, DayOfWeek } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { MEAL_TYPE_STYLE } from "@/lib/meals";
 
 interface MealCardProps {
   weekStartDate: string;
@@ -27,44 +27,33 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
   const [showRecipeSelector, setShowRecipeSelector] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDraggedOver, setIsDraggedOver] = useState(false);
+  const mealLabel = MEAL_TYPE_STYLE[mealType].label.toLowerCase();
 
-  const recipeSelectorRef = useRef<HTMLDivElement>(null);
-
-
-
-  // Handle clicking outside to close recipe selector (desktop only)
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!isMobile && recipeSelectorRef.current && !recipeSelectorRef.current.contains(event.target as Node)) {
-        closeRecipeSelector();
-      }
-    };
-
-    if (showRecipeSelector && !isMobile) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showRecipeSelector, isMobile]);
-
-  // Get all available recipes for this meal type
   const { data: availableRecipes } = useQuery<Recipe[]>({
     queryKey: ['/api/recipes'],
   });
 
-  const mealTypeRecipes = availableRecipes?.filter(r => 
-    r.mealTypes?.includes(mealType) && 
+  const plannedIds = new Set(recipes.map((r) => r.id));
+  const mealTypeRecipes = availableRecipes?.filter(r =>
+    r.mealTypes?.includes(mealType) &&
+    !plannedIds.has(r.id) &&
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  const openRecipeSelector = () => setShowRecipeSelector(true);
   const closeRecipeSelector = () => {
     setShowRecipeSelector(false);
     setSearchTerm("");
   };
 
-  // Calculate total calories for all recipes in this meal
+  const refreshPlan = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/macros'] });
+  };
+
   const totalCalories = recipes.reduce((sum, recipe) => sum + recipe.calories, 0);
 
-  // Mutation to add recipe to meal
+  // The new recipe showing up in the slot is the confirmation; toasts are for failures and undo
   const addRecipeMutation = useMutation({
     mutationFn: async (recipeId: number) => {
       return apiRequest('POST', '/api/meal-plans', {
@@ -75,54 +64,50 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/macros'] });
+      refreshPlan();
       closeRecipeSelector();
-      toast({
-        title: "Recipe Added",
-        description: "Successfully added recipe to your meal.",
-      });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to add recipe to meal.",
+        title: "Couldn't add that recipe",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Mutation to remove specific recipe from meal
   const removeRecipeMutation = useMutation({
-    mutationFn: async (recipeId: number) => {
-      return apiRequest('DELETE', `/api/meal-plans/${weekStartDate}/${dayOfWeek}/${mealType}/${recipeId}`);
+    mutationFn: async (recipe: Recipe) => {
+      return apiRequest('DELETE', `/api/meal-plans/${weekStartDate}/${dayOfWeek}/${mealType}/${recipe.id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/macros'] });
+    onSuccess: (_, recipe) => {
+      refreshPlan();
       toast({
-        title: "Recipe Removed",
-        description: "Successfully removed recipe from meal.",
+        title: `Removed ${recipe.name}`,
+        action: (
+          <ToastAction altText={`Put ${recipe.name} back`} onClick={() => addRecipeMutation.mutate(recipe.id)}>
+            Undo
+          </ToastAction>
+        ),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to remove recipe from meal.",
+        title: "Couldn't remove that recipe",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Mutation to move recipe between meal slots
   const moveRecipeMutation = useMutation({
-    mutationFn: async ({ 
-      recipeId, 
+    mutationFn: async ({
+      recipeId,
       fromWeek,
-      fromDay, 
-      fromMeal, 
-      toDay, 
-      toMeal 
+      fromDay,
+      fromMeal,
+      toDay,
+      toMeal
     }: {
       recipeId: number;
       fromWeek: string;
@@ -140,30 +125,15 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
       });
       return apiRequest('DELETE', `/api/meal-plans/${fromWeek}/${fromDay}/${fromMeal}/${recipeId}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/macros'] });
-      toast({
-        title: "Recipe Moved",
-        description: "Successfully moved recipe to new meal slot.",
-      });
-    },
+    onSuccess: refreshPlan,
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to move recipe.",
+        title: "Couldn't move that recipe",
+        description: "It's still in its original slot. Try again.",
         variant: "destructive",
       });
     },
   });
-
-  const handleAddRecipe = (recipeId: number) => {
-    addRecipeMutation.mutate(recipeId);
-  };
-
-  const handleRemoveRecipe = (recipeId: number) => {
-    removeRecipeMutation.mutate(recipeId);
-  };
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, recipe: Recipe) => {
@@ -184,12 +154,8 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only set to false if leaving the card entirely
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    // Only reset when leaving the card entirely, not when crossing a child
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
       setIsDraggedOver(false);
     }
   };
@@ -197,13 +163,12 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggedOver(false);
-    
+
     try {
       const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
       const { recipeId, fromDay, fromMeal } = dragData;
       const fromWeek: string = dragData.fromWeek ?? weekStartDate;
-      
-      // Don't move if dropped on the same slot
+
       if (fromWeek === weekStartDate && fromDay === dayOfWeek && fromMeal === mealType) {
         return;
       }
@@ -221,252 +186,146 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
     }
   };
 
-  // Desktop recipe list (a render function, not a component, so the input keeps focus)
-  const renderDesktopRecipeList = () => (
-    <>
-      <div className="text-sm font-medium mb-3">Choose a recipe for {mealType}:</div>
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  // A render function, not a component, so the search input keeps focus while typing
+  const renderRecipePicker = (variant: "desktop" | "mobile") => (
+    <div className="flex flex-col min-h-0">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
         <Input
-          type="text"
-          placeholder="Search recipes..."
+          type="search"
+          placeholder={`Search ${mealLabel} recipes`}
+          aria-label={`Search ${mealLabel} recipes`}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-7 h-7 text-xs"
+          className={cn("pl-9", variant === "mobile" ? "h-11 text-base" : "h-9 text-sm")}
           autoFocus
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck="false"
-          data-testid="input-recipe-search-desktop"
+          data-testid={variant === "mobile" ? "input-recipe-search" : "input-recipe-search-desktop"}
         />
       </div>
-      <div className="space-y-1 max-h-32 overflow-y-auto">
+      <div className={cn("mt-2 -mx-1 overflow-y-auto", variant === "mobile" ? "max-h-[55vh]" : "max-h-72")}>
         {mealTypeRecipes.length > 0 ? (
-          mealTypeRecipes.map((recipe) => (
-            <button
-              key={recipe.id}
-              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md transition-colors text-sm"
-              onClick={() => handleAddRecipe(recipe.id)}
-              data-testid={`button-select-recipe-${recipe.id}`}
-            >
-              <div className="font-medium">{recipe.name}</div>
-              <div className="text-gray-500 text-sm">
-                {formatNumber(recipe.calories)} calories • {recipe.protein}g protein
-              </div>
-            </button>
-          ))
-        ) : (
-          <div className="text-gray-400 px-3 py-2 text-center">
-            No recipes found for "{searchTerm}"
-          </div>
-        )}
-      </div>
-      <button
-        className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-500 border-t mt-3 pt-3 transition-colors text-sm"
-        onClick={closeRecipeSelector}
-        data-testid="button-cancel-recipe-selection"
-      >
-        Cancel
-      </button>
-    </>
-  );
-
-  // Mobile bottom sheet for choosing a recipe (portalled: the card's hover transform would trap a fixed overlay)
-  const renderMobileSelector = () => createPortal(
-    <div 
-      className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) closeRecipeSelector();
-      }}
-    >
-      <div className="w-full bg-white rounded-t-xl max-h-[80vh] overflow-hidden animate-in slide-in-from-bottom-full flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Add Recipe to {mealType}</h3>
-            <button 
-              onClick={closeRecipeSelector}
-              className="p-2 hover:bg-gray-100 rounded-full"
-              data-testid="button-close-selector"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="text-sm font-medium mb-3">Choose a recipe for {mealType}:</div>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search recipes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10 text-base"
-              autoFocus
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-              data-testid="input-recipe-search"
-            />
-          </div>
-          <div className="space-y-1 max-h-96 overflow-y-auto mb-20">
-            {mealTypeRecipes.length > 0 ? (
-              mealTypeRecipes.map((recipe) => (
+          <ul className="space-y-0.5">
+            {mealTypeRecipes.map((recipe) => (
+              <li key={recipe.id}>
                 <button
-                  key={recipe.id}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md transition-colors text-base"
-                  onClick={() => handleAddRecipe(recipe.id)}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors disabled:opacity-50"
+                  onClick={() => addRecipeMutation.mutate(recipe.id)}
+                  disabled={addRecipeMutation.isPending}
                   data-testid={`button-select-recipe-${recipe.id}`}
                 >
-                  <div className="font-medium">{recipe.name}</div>
-                  <div className="text-gray-500 text-sm">
-                    {formatNumber(recipe.calories)} calories • {recipe.protein}g protein
+                  <div className={cn("font-medium text-foreground", variant === "mobile" ? "text-base" : "text-sm")}>{recipe.name}</div>
+                  <div className="text-xs text-muted-foreground tabular">
+                    {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
                   </div>
                 </button>
-              ))
-            ) : (
-              <div className="text-gray-400 px-3 py-2 text-center">
-                No recipes found for "{searchTerm}"
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Sticky Cancel Button */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
-          <button
-            className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors text-base font-medium"
-            onClick={closeRecipeSelector}
-            data-testid="button-cancel-recipe-selection"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-
-  if (recipes.length === 0) {
-    return (
-      <Card 
-        className={`meal-card-empty group cursor-pointer hover:bg-gray-50 transition-colors border-2 border-dashed rounded-lg p-3 h-auto min-h-[120px] flex items-center justify-center relative ${
-          isDraggedOver ? 'border-green-400 bg-green-50' : 'border-gray-300'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <div 
-          className="text-center w-full h-full flex items-center justify-center"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setShowRecipeSelector(true);
-          }}
-        >
-          <div>
-            <div className="text-gray-400 text-xl mb-2 mx-auto h-6 w-6 flex items-center justify-center border border-dashed border-gray-300 rounded">+</div>
-            <div className="text-xs text-gray-500 break-words">Add Recipe</div>
-          </div>
-        </div>
-        
-        {/* Recipe Selector - Mobile vs Desktop */}
-        {isMobile && showRecipeSelector && renderMobileSelector()}
-        
-        {!isMobile && showRecipeSelector && (
-          <div 
-            ref={recipeSelectorRef}
-            className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
-          >
-            <div className="p-3">
-              {renderDesktopRecipeList()}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+            {searchTerm
+              ? <>No {mealLabel} recipes match “{searchTerm}”.</>
+              : <>No more {mealLabel} recipes to add.</>}
+            <div className="mt-2">
+              <Link href="/recipes" className="font-medium text-primary underline-offset-4 hover:underline">
+                Add one in Recipes
+              </Link>
             </div>
           </div>
         )}
-      </Card>
-    );
-  }
+      </div>
+    </div>
+  );
+
+  const isEmpty = recipes.length === 0;
 
   return (
-    <Card 
-      className={`meal-card group hover:shadow-md transition-all duration-200 bg-white rounded-lg p-3 h-auto min-h-[120px] relative flex flex-col ${
-        isDraggedOver ? 'border-2 border-green-400 bg-green-50' : 'border border-gray-200'
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      
-      {/* Total calories at the top */}
-      <div className="text-xs text-gray-600 mb-2 font-medium">
-        {formatNumber(totalCalories)} cal total
-      </div>
-      
-      {/* Recipe list - flexible height */}
-      <div className="space-y-2 mb-3 flex-1">
-        {recipes.map((recipe) => (
-          <div 
-            key={recipe.id} 
-            className="relative bg-gray-50 rounded-lg p-2.5 border border-gray-100 hover:border-gray-200 transition-all group/recipe cursor-move"
-            draggable
-            onDragStart={(e) => handleDragStart(e, recipe)}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 bg-white border border-gray-200 rounded-full shadow-sm text-gray-400 hover:text-red-500 hover:border-red-200 sm:opacity-0 sm:group-hover/recipe:opacity-100 transition-all z-10"
-              onClick={() => handleRemoveRecipe(recipe.id)}
-              title="Remove recipe"
+    <Popover open={showRecipeSelector && !isMobile} onOpenChange={(open) => (open ? openRecipeSelector() : closeRecipeSelector())}>
+      <PopoverAnchor asChild>
+        <div
+          className={cn(
+            "h-full min-h-[3.25rem] sm:min-h-[5.5rem] rounded-lg transition-colors",
+            isDraggedOver && "ring-2 ring-primary bg-primary/5",
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          data-testid={`meal-slot-${dayOfWeek}-${mealType}`}
+        >
+          {isEmpty ? (
+            <button
+              type="button"
+              onClick={openRecipeSelector}
+              className="group w-full h-full min-h-[3.25rem] sm:min-h-[5.5rem] rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors flex items-center justify-center gap-1.5"
+              aria-label={`Add ${mealLabel}`}
+              data-testid={`button-add-${mealType}`}
             >
-              <X className="h-3 w-3" />
-            </Button>
-            <div className="pr-2">
-              <div className="font-medium text-gray-900 text-sm leading-tight mb-1">
-                {recipe.name}
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-600">
-                  {formatNumber(recipe.calories)} calories
-                </span>
-                <span className="text-gray-500">
-                  {recipe.protein}g protein
-                </span>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add
+            </button>
+          ) : (
+            <div className="flex flex-col gap-1.5 h-full">
+              {recipes.map((recipe) => (
+                <div
+                  key={recipe.id}
+                  className="group/recipe relative rounded-md bg-background border border-border px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-foreground/20 transition-colors"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, recipe)}
+                >
+                  <div className="pr-6 text-sm font-medium leading-snug text-foreground break-words">{recipe.name}</div>
+                  <div className="text-xs text-muted-foreground tabular mt-0.5">
+                    {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
+                  </div>
+                  <button
+                    type="button"
+                    className="absolute top-1.5 right-1.5 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring opacity-100 sm:opacity-0 sm:group-hover/recipe:opacity-100 sm:focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                    onClick={() => removeRecipeMutation.mutate(recipe)}
+                    aria-label={`Remove ${recipe.name}`}
+                    data-testid={`button-remove-recipe-${recipe.id}`}
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              ))}
+              <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={openRecipeSelector}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                  aria-label={`Add another recipe to ${mealLabel}`}
+                  data-testid={`button-add-more-${mealType}`}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add
+                </button>
+                {recipes.length > 1 && (
+                  <span className="text-xs text-muted-foreground tabular">{formatNumber(totalCalories)} cal</span>
+                )}
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Add more button - always at bottom */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full h-7 text-xs text-gray-500 hover:text-gray-700 border border-dashed border-gray-300 hover:border-gray-400 mt-auto"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowRecipeSelector(true);
-        }}
-      >
-        <span className="text-lg mr-1">+</span>
-        Add Recipe
-      </Button>
-
-      {/* Recipe Selector - Mobile vs Desktop */}
-      {isMobile && showRecipeSelector && renderMobileSelector()}
-      
-      {!isMobile && showRecipeSelector && (
-        <div 
-          ref={recipeSelectorRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
-        >
-          <div className="p-3">
-            {renderDesktopRecipeList()}
-          </div>
+          )}
         </div>
+      </PopoverAnchor>
+
+      <PopoverContent align="start" className="w-80 p-3" onOpenAutoFocus={(e) => e.preventDefault()}>
+        {renderRecipePicker("desktop")}
+      </PopoverContent>
+
+      {isMobile && (
+        <Sheet open={showRecipeSelector} onOpenChange={(open) => !open && closeRecipeSelector()}>
+          <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] flex flex-col gap-3">
+            <SheetHeader className="text-left">
+              <SheetTitle className="font-display font-normal text-xl">Add to {mealLabel}</SheetTitle>
+              <SheetDescription className="sr-only">Pick a recipe from your library</SheetDescription>
+            </SheetHeader>
+            {renderRecipePicker("mobile")}
+          </SheetContent>
+        </Sheet>
       )}
-    </Card>
+    </Popover>
   );
 }

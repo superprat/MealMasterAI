@@ -6,8 +6,5 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatNumber(num: number): string {
-  if (num >= 1000) {
-    return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'k'
-  }
-  return num.toString()
+  return Math.round(num).toLocaleString("en-US")
 }

@@ -1,11 +1,11 @@
 {
-  "name": "Meal Planner",
-  "short_name": "MealPlan",
-  "description": "AI-powered meal planning application for organizing your weekly meals, tracking nutrition, and discovering new recipes.",
+  "name": "MealMaster",
+  "short_name": "MealMaster",
+  "description": "Family meal planner with a shared recipe library.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#16a34a",
+  "background_color": "#f7f1e8",
+  "theme_color": "#f7f1e8",
   "icons": [
     {
       "src": "/favicon-16x16.png",

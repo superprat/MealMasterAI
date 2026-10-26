@@ -86,7 +86,6 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
       return await response.json();
     },
     onSuccess: (recipe: any) => {
-      console.log("Generated recipe data:", recipe);
       setValue("calories", recipe.calories || 0);
       setValue("protein", recipe.protein || 0);
       setValue("carbs", recipe.carbs || 0);
@@ -95,14 +94,14 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
         setValue("description", recipe.description);
       }
       toast({
-        title: "Macros Generated",
-        description: "AI has estimated the nutritional information for your recipe.",
+        title: "Nutrition estimated",
+        description: "Check the numbers before saving.",
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to generate macros. Please enter them manually.",
+        title: "Couldn't estimate nutrition",
+        description: "Enter the numbers yourself, or try again.",
         variant: "destructive",
       });
     },
@@ -120,16 +119,16 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/recipes'] });
       toast({
-        title: "Recipe Added",
-        description: "Your recipe has been successfully added to the library.",
+        title: "Recipe added",
+        description: "It's ready to use in the planner.",
       });
       reset();
       onClose();
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to add recipe. Please try again.",
+        title: "Couldn't save the recipe",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
@@ -138,8 +137,8 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
   const handleGenerateMacros = async () => {
     if (!recipeName || !mealTypes?.length) {
       toast({
-        title: "Missing Information",
-        description: "Please enter a recipe name and select at least one meal type first.",
+        title: "Add a name and meal type first",
+        description: "The estimate is based on them.",
         variant: "destructive",
       });
       return;
@@ -165,8 +164,8 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] w-[95vw] sm:w-full flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100">
-          <DialogTitle className="text-lg sm:text-xl">Add New Recipe</DialogTitle>
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+          <DialogTitle className="font-display font-normal text-2xl">New recipe</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
@@ -174,18 +173,18 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
-            <h3 className="text-lg font-medium">Basic Information</h3>
+            <h3 className="font-display text-lg">The recipe</h3>
             
             <div>
-              <Label htmlFor="name">Recipe Name</Label>
+              <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
                 {...register("name")}
-                placeholder="e.g., Grilled Chicken Salad"
-                className={errors.name ? "border-red-500" : ""}
+                placeholder="e.g. Grilled chicken salad"
+                className={errors.name ? "border-destructive" : ""}
               />
               {errors.name && (
-                <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>
+                <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
               )}
             </div>
 
@@ -194,17 +193,17 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
               <Textarea
                 id="description"
                 {...register("description")}
-                placeholder="Brief description of the recipe"
-                className={errors.description ? "border-red-500" : ""}
+                placeholder="A line to jog your memory"
+                className={errors.description ? "border-destructive" : ""}
                 rows={2}
               />
               {errors.description && (
-                <p className="text-sm text-red-500 mt-1">{errors.description.message}</p>
+                <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
               )}
             </div>
 
             <div>
-              <Label>Meal Types</Label>
+              <Label>Meals</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                 {["breakfast", "lunch", "snack", "dinner"].map((mealType) => (
                   <div key={mealType} className="flex items-center space-x-2">
@@ -225,56 +224,57 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
                 ))}
               </div>
               {errors.mealTypes && (
-                <p className="text-sm text-red-500 mt-1">{errors.mealTypes.message}</p>
+                <p className="text-sm text-destructive mt-1">{errors.mealTypes.message}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="maxWeeklyUses">Max Weekly Uses</Label>
+              <Label htmlFor="maxWeeklyUses">Most times per week</Label>
               <Input
                 id="maxWeeklyUses"
                 type="number"
                 {...register("maxWeeklyUses", { valueAsNumber: true })}
                 min="1"
                 max="7"
-                className={errors.maxWeeklyUses ? "border-red-500" : ""}
+                className={errors.maxWeeklyUses ? "border-destructive" : ""}
               />
               {errors.maxWeeklyUses && (
-                <p className="text-sm text-red-500 mt-1">{errors.maxWeeklyUses.message}</p>
+                <p className="text-sm text-destructive mt-1">{errors.maxWeeklyUses.message}</p>
               )}
+              <p className="text-xs text-muted-foreground mt-1">Meal suggestions won’t use it more often than this.</p>
             </div>
           </div>
 
-          {/* AI Macro Generation */}
-          <Card className="bg-green-50 border-green-200">
+          {/* Estimate nutrition */}
+          <Card className="bg-secondary/60 border-border shadow-none">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 space-y-2 sm:space-y-0">
-                <h3 className="text-base sm:text-lg font-medium text-green-800">AI Macro Generation</h3>
+                <h3 className="text-base font-semibold text-foreground">Estimate nutrition</h3>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleGenerateMacros}
                   disabled={isGeneratingMacros || !recipeName || !mealTypes?.length}
-                  className="border-green-300 text-green-700 hover:bg-green-100 w-full sm:w-auto"
+                  className="w-full sm:w-auto bg-background"
                 >
                   {isGeneratingMacros ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Sparkles className="mr-2 h-4 w-4" />
                   )}
-                  {isGeneratingMacros ? "Generating..." : "Generate Macros"}
+                  {isGeneratingMacros ? "Estimating…" : "Estimate with AI"}
                 </Button>
               </div>
-              <p className="text-sm text-green-700">
-                Let AI estimate the nutritional information based on your recipe name and meal type.
+              <p className="text-sm text-muted-foreground">
+                Fills in calories and macros from the recipe name. Check the numbers before saving.
               </p>
             </CardContent>
           </Card>
 
           {/* Nutritional Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Nutritional Information</h3>
+            <h3 className="font-display text-lg">Nutrition</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -284,10 +284,10 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
                   type="number"
                   {...register("calories", { valueAsNumber: true })}
                   min="0"
-                  className={errors.calories ? "border-red-500" : ""}
+                  className={errors.calories ? "border-destructive" : ""}
                 />
                 {errors.calories && (
-                  <p className="text-sm text-red-500 mt-1">{errors.calories.message}</p>
+                  <p className="text-sm text-destructive mt-1">{errors.calories.message}</p>
                 )}
               </div>
 
@@ -299,40 +299,40 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
                   {...register("protein", { valueAsNumber: true })}
                   min="0"
                   step="0.1"
-                  className={errors.protein ? "border-red-500" : ""}
+                  className={errors.protein ? "border-destructive" : ""}
                 />
                 {errors.protein && (
-                  <p className="text-sm text-red-500 mt-1">{errors.protein.message}</p>
+                  <p className="text-sm text-destructive mt-1">{errors.protein.message}</p>
                 )}
               </div>
 
               <div>
-                <Label htmlFor="carbs">Carbohydrates (g)</Label>
+                <Label htmlFor="carbs">Carbs (g)</Label>
                 <Input
                   id="carbs"
                   type="number"
                   {...register("carbs", { valueAsNumber: true })}
                   min="0"
                   step="0.1"
-                  className={errors.carbs ? "border-red-500" : ""}
+                  className={errors.carbs ? "border-destructive" : ""}
                 />
                 {errors.carbs && (
-                  <p className="text-sm text-red-500 mt-1">{errors.carbs.message}</p>
+                  <p className="text-sm text-destructive mt-1">{errors.carbs.message}</p>
                 )}
               </div>
 
               <div>
-                <Label htmlFor="fats">Fats (g)</Label>
+                <Label htmlFor="fats">Fat (g)</Label>
                 <Input
                   id="fats"
                   type="number"
                   {...register("fats", { valueAsNumber: true })}
                   min="0"
                   step="0.1"
-                  className={errors.fats ? "border-red-500" : ""}
+                  className={errors.fats ? "border-destructive" : ""}
                 />
                 {errors.fats && (
-                  <p className="text-sm text-red-500 mt-1">{errors.fats.message}</p>
+                  <p className="text-sm text-destructive mt-1">{errors.fats.message}</p>
                 )}
               </div>
             </div>
@@ -340,7 +340,7 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
           </div>
 
           {/* Sticky Form Actions */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 sm:px-6 sm:py-4">
+          <div className="sticky bottom-0 bg-background border-t border-border px-6 py-4 sm:px-6 sm:py-4">
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <Button type="button" variant="outline" onClick={handleClose} className="order-2 sm:order-1" data-testid="button-cancel">
                 Cancel
@@ -348,13 +348,13 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
               <Button
                 type="submit"
                 disabled={createRecipeMutation.isPending}
-                className="bg-primary text-white hover:bg-green-600 order-1 sm:order-2"
+                className="order-1 sm:order-2"
                 data-testid="button-add-recipe"
               >
                 {createRecipeMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                {createRecipeMutation.isPending ? "Adding..." : "Add Recipe"}
+                {createRecipeMutation.isPending ? "Saving…" : "Save recipe"}
               </Button>
             </div>
           </div>

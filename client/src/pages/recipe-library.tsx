@@ -1,18 +1,27 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, ArrowLeft, Download, Upload } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Download, Upload } from "lucide-react";
 import { Recipe, MealType } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { MEAL_TYPES } from "@/lib/meals";
+import { AppHeader } from "@/components/app-header";
 import { todayKey } from "@/lib/dates";
-import { Link } from "wouter";
 import { AddRecipeModal } from "@/components/add-recipe-modal";
 import { EditRecipeModal } from "@/components/edit-recipe-modal";
 
@@ -23,6 +32,7 @@ export default function RecipeLibrary() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [deletingRecipe, setDeletingRecipe] = useState<Recipe | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,11 +40,6 @@ export default function RecipeLibrary() {
   // Fetch all recipes
   const { data: recipes, isLoading } = useQuery<Recipe[]>({
     queryKey: ['/api/recipes'],
-  });
-
-  // Fetch current session info
-  const { data: sessionInfo } = useQuery({
-    queryKey: ['/api/auth/session'],
   });
 
   // Delete recipe mutation
@@ -47,15 +52,13 @@ export default function RecipeLibrary() {
       queryClient.invalidateQueries({ queryKey: ['/api/recipes'] });
       queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
       queryClient.invalidateQueries({ queryKey: ['/api/macros'] });
-      toast({
-        title: "Recipe Deleted",
-        description: "Recipe has been successfully deleted.",
-      });
+      setDeletingRecipe(null);
+      toast({ title: "Recipe deleted" });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to delete recipe.",
+        title: "Couldn't delete the recipe",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
@@ -83,14 +86,14 @@ export default function RecipeLibrary() {
       window.URL.revokeObjectURL(url);
       
       toast({
-        title: "Export Complete",
-        description: `Successfully exported ${data.recipes.length} recipes.`,
+        title: `Exported ${data.recipes.length} recipes`,
+        description: "Saved as a JSON file in your downloads.",
       });
     },
     onError: () => {
       toast({
-        title: "Export Failed",
-        description: "Failed to export recipes.",
+        title: "Couldn't export recipes",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
@@ -105,14 +108,14 @@ export default function RecipeLibrary() {
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/recipes'] });
       toast({
-        title: "Import Complete",
-        description: `Successfully imported ${result.imported} recipes. ${result.errors > 0 ? `${result.errors} errors occurred.` : ''}`,
+        title: `Imported ${result.imported} recipes`,
+        description: result.errors > 0 ? `${result.errors} couldn't be read and were skipped.` : undefined,
       });
     },
     onError: () => {
       toast({
-        title: "Import Failed",
-        description: "Failed to import recipes.",
+        title: "Couldn't import recipes",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     },
@@ -133,15 +136,15 @@ export default function RecipeLibrary() {
           importRecipesMutation.mutate(data.recipes);
         } else {
           toast({
-            title: "Invalid File",
-            description: "The selected file does not contain valid recipe data.",
+            title: "That file has no recipes in it",
+            description: "Choose a JSON file exported from MealMaster.",
             variant: "destructive",
           });
         }
       } catch (error) {
         toast({
-          title: "Invalid File",
-          description: "Failed to parse the selected file.",
+          title: "Couldn't read that file",
+          description: "Choose a JSON file exported from MealMaster.",
           variant: "destructive",
         });
       }
@@ -169,307 +172,264 @@ export default function RecipeLibrary() {
     }
   }) || [];
 
-  const mealTypeColors = {
-    breakfast: "bg-amber-50 text-amber-700 border border-amber-200",
-    lunch: "bg-emerald-50 text-emerald-700 border border-emerald-200", 
-    snack: "bg-violet-50 text-violet-700 border border-violet-200",
-    dinner: "bg-indigo-50 text-indigo-700 border border-indigo-200",
-  };
+  const hasFilters = searchTerm !== "" || selectedMealType !== "all";
 
-  const RecipeCard = ({ recipe }: { recipe: Recipe }) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg font-semibold mb-2">{recipe.name}</CardTitle>
-            <p className="text-sm text-gray-600 mb-2">{recipe.description}</p>
-            <div className="flex flex-wrap gap-1">
-              {recipe.mealTypes?.map((mealType, index) => (
-                <Badge key={index} className={`${mealTypeColors[mealType as MealType]} text-xs`}>
-                  {mealType}
-                </Badge>
-              )) || <Badge className="bg-gray-100 text-gray-800 text-xs">No meal type</Badge>}
-            </div>
-          </div>
-          <div className="flex space-x-1 ml-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-9 w-9 p-0 sm:h-8 sm:w-8"
-              onClick={() => {
-                setEditingRecipe(recipe);
-                setShowEditModal(true);
-              }}
-              data-testid={`button-edit-recipe-${recipe.id}`}
-            >
-              <Edit className="h-4 w-4 text-gray-500" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-9 w-9 p-0 sm:h-8 sm:w-8 text-red-500 hover:text-red-700"
-              onClick={() => {
-                if (window.confirm(`Delete "${recipe.name}"? It will also be removed from every meal plan.`)) {
-                  deleteRecipeMutation.mutate(recipe.id);
-                }
-              }}
-              data-testid={`button-delete-recipe-${recipe.id}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+  const RecipeRow = ({ recipe }: { recipe: Recipe }) => (
+    <li className="group grid grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_9rem_repeat(4,4.5rem)_5rem] items-center gap-x-4 gap-y-2 px-4 py-3.5 hover:bg-accent/50 transition-colors">
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-foreground">{recipe.name}</span>
+          {recipe.isAiSuggested && (
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">From suggestions</span>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm font-medium">{formatNumber(recipe.calories)} cal</div>
-            <div className="text-xs text-gray-600">Calories</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm font-medium">{recipe.protein}g</div>
-            <div className="text-xs text-gray-600">Protein</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm font-medium">{recipe.carbs}g</div>
-            <div className="text-xs text-gray-600">Carbs</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm font-medium">{recipe.fats}g</div>
-            <div className="text-xs text-gray-600">Fats</div>
-          </div>
-        </div>
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Max weekly uses: {recipe.maxWeeklyUses}</span>
-            {recipe.isAiSuggested && <span>AI Suggested</span>}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center space-x-4">
-                <Skeleton className="h-6 w-6" />
-                <Skeleton className="h-6 w-32" />
-              </div>
-              <Skeleton className="h-9 w-24" />
-            </div>
-          </div>
-        </header>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-5 w-16" />
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    {[...Array(4)].map((_, j) => (
-                      <div key={j}>
-                        <Skeleton className="h-4 w-12 mb-1" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        {recipe.description && (
+          <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{recipe.description}</p>
+        )}
       </div>
-    );
-  }
+
+      <div className="flex items-center gap-1 md:order-none order-last col-span-2 md:col-span-1 flex-wrap">
+        {recipe.mealTypes?.length ? (
+          MEAL_TYPES.filter((m) => recipe.mealTypes.includes(m.type)).map((m) => (
+            <span
+              key={m.type}
+              className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-foreground/80", m.soft)}
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} aria-hidden />
+              {m.label}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-muted-foreground">No meal type</span>
+        )}
+      </div>
+
+      <dl className="contents tabular text-sm">
+        {[
+          { label: "Calories", value: formatNumber(recipe.calories), unit: "" },
+          { label: "Protein", value: recipe.protein, unit: "g" },
+          { label: "Carbs", value: recipe.carbs, unit: "g" },
+          { label: "Fat", value: recipe.fats, unit: "g" },
+        ].map((m) => (
+          <div key={m.label} className="hidden md:block text-right">
+            <dt className="sr-only">{m.label}</dt>
+            <dd className="text-foreground">
+              {m.value}
+              <span className="text-muted-foreground">{m.unit}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="flex justify-end gap-0.5 row-start-1 col-start-2 md:row-auto md:col-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setEditingRecipe(recipe);
+            setShowEditModal(true);
+          }}
+          aria-label={`Edit ${recipe.name}`}
+          data-testid={`button-edit-recipe-${recipe.id}`}
+        >
+          <Pencil />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          onClick={() => setDeletingRecipe(recipe)}
+          aria-label={`Delete ${recipe.name}`}
+          data-testid={`button-delete-recipe-${recipe.id}`}
+        >
+          <Trash2 />
+        </Button>
+      </div>
+
+      <p className="md:hidden col-span-2 text-xs text-muted-foreground tabular -mt-1">
+        {formatNumber(recipe.calories)} cal · {recipe.protein}g protein · {recipe.carbs}g carbs · {recipe.fats}g fat
+      </p>
+    </li>
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b border-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="p-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <h1 className="text-lg sm:text-xl font-display font-semibold text-foreground">Recipe Library</h1>
-              <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
-                {filteredRecipes.length}
-              </Badge>
-            </div>
-            <div className="flex space-x-1 sm:space-x-2">
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => exportRecipesMutation.mutate()}
-                disabled={exportRecipesMutation.isPending || !recipes?.length}
-                className="hidden sm:flex hover:bg-accent hover:text-accent-foreground"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => exportRecipesMutation.mutate()}
-                disabled={exportRecipesMutation.isPending || !recipes?.length}
-                className="sm:hidden p-2"
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-              
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileImport}
-                  className="hidden"
-                  disabled={importRecipesMutation.isPending}
-                />
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  disabled={importRecipesMutation.isPending}
-                  className="hidden sm:flex"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {importRecipesMutation.isPending ? 'Importing...' : 'Import'}
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  disabled={importRecipesMutation.isPending}
-                  className="sm:hidden p-2"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <Button 
-                size="sm"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 hidden sm:flex"
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Recipe
-              </Button>
-              <Button 
-                size="sm"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 sm:hidden p-2"
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search recipes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
-                <Select value={sortBy} onValueChange={(value: "name" | "newest" | "oldest") => setSortBy(value)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Name</SelectItem>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="oldest">Oldest</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={selectedMealType === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMealType("all")}
-            >
-              All
-            </Button>
-            <Button
-              variant={selectedMealType === "breakfast" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMealType("breakfast")}
-            >
-              Breakfast
-            </Button>
-            <Button
-              variant={selectedMealType === "lunch" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMealType("lunch")}
-            >
-              Lunch
-            </Button>
-            <Button
-              variant={selectedMealType === "snack" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMealType("snack")}
-            >
-              Snack
-            </Button>
-            <Button
-              variant={selectedMealType === "dinner" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMealType("dinner")}
-            >
-              Dinner
-            </Button>
-          </div>
-        </div>
-
-        {/* Recipe Grid */}
-        {filteredRecipes.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">
-              {searchTerm || selectedMealType !== "all" 
-                ? "No recipes match your search criteria" 
-                : "No recipes found"}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6 sm:mb-8">
+          <div>
+            <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-tight">Recipe library</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isLoading ? "Loading recipes…" : `${recipes?.length ?? 0} recipes, shared by every family`}
             </p>
-            <Button 
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => setShowAddModal(true)}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileImport}
+              className="hidden"
+              disabled={importRecipesMutation.isPending}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={importRecipesMutation.isPending}
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-import"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Your First Recipe
+              <Upload />
+              {importRecipesMutation.isPending ? "Importing…" : "Import"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => exportRecipesMutation.mutate()}
+              disabled={exportRecipesMutation.isPending || !recipes?.length}
+              data-testid="button-export"
+            >
+              <Download />
+              Export
+            </Button>
+            <Button onClick={() => setShowAddModal(true)} className="ml-auto sm:ml-1" data-testid="button-open-add-recipe">
+              <Plus />
+              Add recipe
             </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+          <div className="relative flex-1 lg:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+            <Input
+              type="search"
+              placeholder="Search by name or description"
+              aria-label="Search recipes"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 bg-card"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by meal">
+            {[{ type: "all" as const, label: "All", dot: "" }, ...MEAL_TYPES].map((m) => {
+              const active = selectedMealType === m.type;
+              return (
+                <button
+                  key={m.type}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSelectedMealType(m.type)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  )}
+                >
+                  {m.dot && <span className={cn("h-2 w-2 rounded-full", m.dot)} aria-hidden />}
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2 lg:ml-auto">
+            <span className="text-sm text-muted-foreground">Sort</span>
+            <Select value={sortBy} onValueChange={(value: "name" | "newest" | "oldest") => setSortBy(value)}>
+              <SelectTrigger className="w-32 h-9 bg-card" aria-label="Sort recipes">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">A to Z</SelectItem>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="rounded-xl border border-border bg-card divide-y divide-border" aria-busy="true">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="px-4 py-4 space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
             ))}
           </div>
+        ) : filteredRecipes.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
+            {hasFilters ? (
+              <>
+                <p className="font-display text-xl text-foreground">Nothing matches that</p>
+                <p className="mt-1 text-sm text-muted-foreground">Try another word or meal type.</p>
+                <Button
+                  variant="outline"
+                  className="mt-5"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedMealType("all");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="font-display text-xl text-foreground">Your recipe box is empty</p>
+                <p className="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">
+                  Add the dishes your family eats most, or import a file exported from MealMaster.
+                </p>
+                <Button className="mt-5" onClick={() => setShowAddModal(true)}>
+                  <Plus />
+                  Add your first recipe
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_9rem_repeat(4,4.5rem)_5rem] gap-x-4 px-4 py-2.5 border-b border-border bg-muted/50 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <span>Recipe</span>
+              <span>Meals</span>
+              <span className="text-right">Cal</span>
+              <span className="text-right">Protein</span>
+              <span className="text-right">Carbs</span>
+              <span className="text-right">Fat</span>
+              <span className="sr-only">Actions</span>
+            </div>
+            <ul className="divide-y divide-border">
+              {filteredRecipes.map((recipe) => (
+                <RecipeRow key={recipe.id} recipe={recipe} />
+              ))}
+            </ul>
+          </div>
         )}
-      </div>
+      </main>
+
+      <AlertDialog open={!!deletingRecipe} onOpenChange={(open) => !open && setDeletingRecipe(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-normal text-2xl">Delete {deletingRecipe?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will be removed from the library and from every family's meal plans. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingRecipe && deleteRecipeMutation.mutate(deletingRecipe.id)}
+              data-testid="button-confirm-delete"
+            >
+              Delete recipe
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AddRecipeModal 
         isOpen={showAddModal} 
