@@ -43,7 +43,23 @@ Backups contain family passwords. Never commit them; `*.sql` is ignored by git.
 
 ## Deploy
 
-The app is a single Node process that serves both the API and the built front end:
+### Vercel (free, recommended)
+
+`npm run build:vercel` writes [Build Output API](https://vercel.com/docs/build-output-api/v3) files to `.vercel/output`: the front end as static files, and the whole Express API bundled into one Node function (`api/index.ts`). `vercel.json` tells Vercel to use that build.
+
+1. On [vercel.com](https://vercel.com/new), import this GitHub repo. Leave the build settings as they are.
+2. In the project's **Storage** tab, add a **Neon** Postgres database. This sets `DATABASE_URL`.
+3. In **Settings → Environment Variables**, add `SESSION_SECRET` (a long random string) and `ANTHROPIC_API_KEY`.
+4. Set up the database, either from a backup (this creates the tables too) or empty:
+   ```bash
+   psql "<neon url>" < mealmaster-backup.sql        # restore your data
+   DATABASE_URL="<neon url>" npm run db:push         # or: start with empty tables
+   ```
+5. Redeploy. Every push to `main` deploys automatically after that.
+
+### Any Node host
+
+The app can also run as a single Node process that serves both the API and the built front end:
 
 ```bash
 npm run build

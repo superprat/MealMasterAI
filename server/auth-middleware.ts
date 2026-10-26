@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from './db';
-import { families } from '@shared/schema';
+import { families } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 
 export function requirePassword(req: Request, res: Response, next: NextFunction) {

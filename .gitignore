@@ -17,3 +17,4 @@ bk-*
 *-backups/
 .claude/
 !.env.example
+.vercel

@@ -1,5 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Pages may be served statically (e.g. on Vercel), so the browser sends
+// logged-out visitors to the login page when the API says 401.
+function redirectToLoginIfUnauthorized(res: Response, url: string) {
+  if (
+    res.status === 401 &&
+    !url.startsWith("/api/auth") &&
+    window.location.pathname !== "/login"
+  ) {
+    window.location.replace("/login");
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -19,6 +31,7 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  redirectToLoginIfUnauthorized(res, url);
   await throwIfResNotOk(res);
   return res;
 }
@@ -29,7 +42,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const res = await fetch(url, {
       credentials: "include",
     });
 
@@ -37,6 +51,7 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
+    redirectToLoginIfUnauthorized(res, url);
     await throwIfResNotOk(res);
     return await res.json();
   };

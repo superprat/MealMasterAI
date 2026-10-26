@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Recipe, MealType, WeeklyMealPlan, DailyMacros } from '@shared/schema';
+import { Recipe, MealType, WeeklyMealPlan, DailyMacros } from '../../shared/schema';
 
 // Override with ANTHROPIC_MODEL to pin a different Claude model
 const DEFAULT_MODEL_STR = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";

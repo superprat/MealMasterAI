@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { recipes, families, weeklyTargets } from "@shared/schema";
+import { recipes, families, weeklyTargets } from "../shared/schema";
 
 async function seedDatabase() {
   console.log("Seeding database with families and sample recipes...");

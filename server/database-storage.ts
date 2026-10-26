@@ -1,4 +1,4 @@
-import { recipes, mealPlans, weeklyTargets, type Recipe, type InsertRecipe, type MealPlan, type InsertMealPlan, type WeeklyTargets, type InsertWeeklyTargets, type WeeklyMealPlan, type MealType, type DailyMacros, type WeeklyMacros } from "@shared/schema";
+import { recipes, mealPlans, weeklyTargets, type Recipe, type InsertRecipe, type MealPlan, type InsertMealPlan, type WeeklyTargets, type InsertWeeklyTargets, type WeeklyMealPlan, type MealType, type DailyMacros, type WeeklyMacros } from "../shared/schema";
 import { db } from "./db";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { IStorage } from "./storage";

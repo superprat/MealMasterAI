@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertRecipeSchema, insertMealPlanSchema, insertWeeklyTargetsSchema } from "@shared/schema";
+import { insertRecipeSchema, insertMealPlanSchema, insertWeeklyTargetsSchema } from "../shared/schema";
 import { generateMealPlanSuggestions, generateNewRecipe, generateAlternativeSuggestion } from "./services/anthropic";
 import { handleLogin, handleLogout } from "./auth-middleware";
 import { z } from "zod";
