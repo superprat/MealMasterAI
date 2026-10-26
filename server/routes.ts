@@ -104,6 +104,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/recipes", async (req, res) => {
     try {
       const validatedData = insertRecipeSchema.parse(req.body);
+      const existing = await storage.getRecipeByName(validatedData.name);
+      if (existing) {
+        return res.status(409).json({ message: "A recipe with this name already exists", recipe: existing });
+      }
       const recipe = await storage.createRecipe(validatedData);
       res.status(201).json(recipe);
     } catch (error) {

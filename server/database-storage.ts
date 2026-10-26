@@ -14,6 +14,15 @@ export class DatabaseStorage implements IStorage {
     return recipe || undefined;
   }
 
+  // Case- and whitespace-insensitive, so "Mutton biryani" matches "mutton Biryani "
+  async getRecipeByName(name: string): Promise<Recipe | undefined> {
+    const [recipe] = await db
+      .select()
+      .from(recipes)
+      .where(sql`lower(trim(${recipes.name})) = lower(trim(${name}))`);
+    return recipe || undefined;
+  }
+
   async createRecipe(recipe: InsertRecipe): Promise<Recipe> {
     const [newRecipe] = await db
       .insert(recipes)

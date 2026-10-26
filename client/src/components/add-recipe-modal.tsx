@@ -46,6 +46,7 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
     setValue,
     watch,
     reset,
+    setError,
   } = useForm<RecipeFormData>({
     resolver: zodResolver(recipeSchema),
     defaultValues: {
@@ -125,7 +126,11 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
       reset();
       onClose();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (error.message.startsWith("409:")) {
+        setError("name", { message: "There's already a recipe with this name in the library." });
+        return;
+      }
       toast({
         title: "Couldn't save the recipe",
         description: "Check your connection and try again.",

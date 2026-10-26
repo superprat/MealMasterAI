@@ -169,12 +169,22 @@ export function AIRecommendationModal({ isOpen, onClose, weekStartDate }: AIReco
   // Create new recipe
   const createRecipeMutation = useMutation({
     mutationFn: async (recipe: any) => {
-      return apiRequest('POST', '/api/recipes', {
-        ...recipe,
-        isAiSuggested: true,
-        isApproved: true, // Auto-approve for demo
-        maxWeeklyUses: 3,
-      });
+      try {
+        const response = await apiRequest('POST', '/api/recipes', {
+          ...recipe,
+          isAiSuggested: true,
+          isApproved: true, // Auto-approve for demo
+          maxWeeklyUses: 3,
+        });
+        return await response.json();
+      } catch (error) {
+        // The library already has a recipe with this name: plan that one instead of a copy
+        const message = error instanceof Error ? error.message : "";
+        if (message.startsWith("409: ")) {
+          return JSON.parse(message.slice(5)).recipe;
+        }
+        throw error;
+      }
     },
   });
 
@@ -219,8 +229,7 @@ export function AIRecommendationModal({ isOpen, onClose, weekStartDate }: AIReco
         // If it's a new recipe, create it first
         if (suggestion.newRecipe) {
           const { mealType, ...recipe } = suggestion.newRecipe;
-          const newRecipeResponse = await createRecipeMutation.mutateAsync({ ...recipe, mealTypes: [mealType] });
-          const newRecipeData = await newRecipeResponse.json();
+          const newRecipeData = await createRecipeMutation.mutateAsync({ ...recipe, mealTypes: [mealType] });
           recipeId = newRecipeData.id;
         }
 

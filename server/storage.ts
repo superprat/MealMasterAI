@@ -4,6 +4,7 @@ export interface IStorage {
   // Recipe operations (shared across all families)
   getRecipes(): Promise<Recipe[]>;
   getRecipe(id: number): Promise<Recipe | undefined>;
+  getRecipeByName(name: string): Promise<Recipe | undefined>;
   createRecipe(recipe: InsertRecipe): Promise<Recipe>;
   updateRecipe(id: number, recipe: Partial<InsertRecipe>): Promise<Recipe | undefined>;
   deleteRecipe(id: number): Promise<boolean>;
