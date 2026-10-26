@@ -1,0 +1,19 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+cookies.txt
+test-results
+playwright-report
+.env
+
+# Database backups / dumps - never commit (contain family passwords)
+*.sql
+*.dump
+mealmaster-backup*
+bk-*
+*-backups/
+.claude/
+!.env.example
