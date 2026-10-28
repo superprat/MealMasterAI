@@ -86,7 +86,11 @@ export function AIRecommendationModal({ isOpen, onClose, weekStartDate }: AIReco
       });
     },
     onSuccess: async (response) => {
-      const data = await response.json();
+      // Suggestions can use recipes added since the list was cached, so refetch it before showing names
+      const [data] = await Promise.all([
+        response.json(),
+        queryClient.invalidateQueries({ queryKey: ['/api/recipes'] }),
+      ]);
       setSuggestions(data);
       setExcludedRecipes({});
     },

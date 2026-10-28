@@ -69,6 +69,34 @@ export interface MealPlanSuggestion {
   reasoning: string;
 }
 
+const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+
+// Guards against the model returning an ID that isn't in the library, or one that belongs to a
+// different recipe than the one it describes. Match on the recipe name it gave, fall back to
+// the ID only when no name came back, and return null when the suggestion points at nothing real.
+function resolveSuggestion(
+  suggestion: MealPlanSuggestion & { recipeName?: string | null },
+  recipes: Recipe[],
+): MealPlanSuggestion | null {
+  const { recipeName, ...rest } = suggestion;
+  const byName = recipeName ? recipes.find((r) => normalizeName(r.name) === normalizeName(recipeName)) : undefined;
+  const byId = recipeName ? undefined : recipes.find((r) => r.id === suggestion.suggestedRecipeId);
+  // A "new" recipe that already exists in the library is reused rather than duplicated
+  const byNewName = suggestion.newRecipe?.name
+    ? recipes.find((r) => normalizeName(r.name) === normalizeName(suggestion.newRecipe!.name))
+    : undefined;
+
+  const existing = byName ?? byId ?? byNewName;
+  if (existing) {
+    return { ...rest, suggestedRecipeId: existing.id, newRecipe: undefined };
+  }
+  if (suggestion.newRecipe?.name) {
+    return { ...rest, suggestedRecipeId: undefined };
+  }
+  console.warn(`Dropped AI suggestion with unknown recipe (id ${suggestion.suggestedRecipeId}, name ${recipeName ?? "none"})`);
+  return null;
+}
+
 export async function generateAlternativeSuggestion(request: {
   dayOfWeek: number;
   mealType: string;
@@ -127,6 +155,7 @@ Respond with EXACTLY this JSON format:
   "dayOfWeek": ${dayOfWeek},
   "mealType": "${mealType}",
   "suggestedRecipeId": [ID if using existing recipe, or null if creating new],
+  "recipeName": "[exact name of the existing recipe, or null if creating new]",
   "newRecipe": {
     "name": "[recipe name if creating new]",
     "description": "[description if creating new]", 
@@ -148,7 +177,10 @@ If using an existing recipe, set newRecipe to null.`;
       throw new Error('Could not parse AI response');
     }
 
-    const suggestion = JSON.parse(jsonMatch[0]) as MealPlanSuggestion;
+    const suggestion = resolveSuggestion(JSON.parse(jsonMatch[0]), availableRecipes);
+    if (!suggestion) {
+      throw new Error('AI suggested a recipe that is not in the library');
+    }
     return suggestion;
   } catch (error) {
     console.error('Error generating alternative suggestion:', error);
@@ -218,6 +250,7 @@ Requirements:
 3. Respect recipe usage limits (maxWeeklyUses)
 4. Balance nutrition across the day and week
 5. Match meal types appropriately (breakfast recipes for breakfast slots, etc.)
+6. For an existing recipe, use only an id from the available recipes list and copy its exact name into "recipeName". Never invent an id; a dish that isn't in the list goes in "newRecipe" with "suggestedRecipeId": null
 
 IMPORTANT: Respond with ONLY a valid JSON array. No explanatory text.
 
@@ -227,6 +260,7 @@ Return format - exactly ${slotsToFill.length} entries:
     "dayOfWeek": 0,
     "mealType": "breakfast", 
     "suggestedRecipeId": 1,
+    "recipeName": "Exact Name Of Recipe 1",
     "newRecipe": null,
     "reasoning": "Meets protein target"
   },
@@ -234,6 +268,7 @@ Return format - exactly ${slotsToFill.length} entries:
     "dayOfWeek": 0,
     "mealType": "lunch",
     "suggestedRecipeId": null,
+    "recipeName": null,
     "newRecipe": {
       "name": "Recipe Name",
       "description": "Brief description", 
@@ -274,7 +309,9 @@ Generate exactly 10 meal suggestions for the next empty meal slots, ordered by p
     
     const suggestions = JSON.parse(jsonText) as MealPlanSuggestion[];
     
-    return suggestions;
+    return suggestions
+      .map((s) => resolveSuggestion(s, request.availableRecipes))
+      .filter((s): s is MealPlanSuggestion => s !== null);
   } catch (error) {
     console.error('Error generating meal plan suggestions:', error);
     throw new Error('Failed to generate meal plan suggestions');
