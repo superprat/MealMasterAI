@@ -68,6 +68,29 @@ npm start
 
 Any host that runs Node and gives you a Postgres database works (Railway, Render + Neon, Fly.io, a VPS…). Set the environment variables above on the host. HTTPS is detected automatically behind the host's proxy, so login cookies are marked secure.
 
+## AI agents (WebMCP)
+
+The app exposes its features as [WebMCP](https://github.com/webmachinelearning/webmcp) tools through `navigator.modelContext`, so an AI agent working in the browser can plan meals without clicking through the UI. The tools live in `client/src/lib/webmcp.ts` and are registered on every page, including `/login`. They call the same `/api` routes as the UI with the same session cookie, and the open page updates as the agent makes changes.
+
+An agent can work in a kitchen two ways:
+
+- **Already signed in:** if the person has signed in, the tools act on that kitchen.
+- **With a password:** the agent calls `sign_in_to_kitchen` with a kitchen's password. The password decides which kitchen opens, the same as the login form, and the same login rate limit applies.
+
+| Tool | What it does |
+| --- | --- |
+| `get_kitchen_session` | Whether this browser is signed in, and to which kitchen |
+| `sign_in_to_kitchen` / `sign_out_of_kitchen` | Sign in with a kitchen password, or sign out |
+| `list_recipes`, `get_recipe` | Read the shared recipe library, filtered by meal type or name |
+| `add_recipe`, `update_recipe` | Add a recipe (duplicate names are refused) or change one |
+| `get_meal_plan` | The week containing a date: meals per day, macro totals and daily targets |
+| `add_meal_to_plan`, `remove_meal_from_plan` | Plan or unplan a recipe for a date and meal (warns when a recipe goes over its weekly limit) |
+| `update_daily_targets` | Change the kitchen's daily calorie and macro targets |
+
+Dates are `YYYY-MM-DD`. Agents never deal with week starts or day numbers. Deleting recipes and the paid AI suggestion endpoints are deliberately not exposed: recipes are shared by every kitchen, and the agent is already an AI.
+
+WebMCP is still a draft. Browsers without `navigator.modelContext` skip registration, so nothing changes for normal visitors. To try it, use a browser or extension that provides `navigator.modelContext` (for example Chrome's WebMCP preview flag or the MCP-B extension).
+
 ## Tests
 
 The end-to-end tests are Playwright tests in `tests/`. They log in as a real family, so set the credentials in your shell first:
