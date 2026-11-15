@@ -13,4 +13,4 @@ export const MEAL_TYPE_STYLE = Object.fromEntries(MEAL_TYPES.map((m) => [m.type,
   (typeof MEAL_TYPES)[number]
 >;
 
-export const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+export { DAY_NAMES } from "@shared/dates";

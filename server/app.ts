@@ -5,20 +5,10 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { requirePassword } from "./auth-middleware";
 import { log } from "./log";
+import { CONTENT_SECURITY_POLICY } from "./app-security";
+import { registerMcp } from "./mcp";
 
-// Also applied to static files on Vercel (script/build-vercel.mjs)
-export const CONTENT_SECURITY_POLICY = {
-  defaultSrc: ["'self'"],
-  scriptSrc: ["'self'"],
-  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-  fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-  imgSrc: ["'self'", "data:", "https:"],
-  connectSrc: ["'self'"],
-  objectSrc: ["'none'"],
-  baseUri: ["'self'"],
-  formAction: ["'self'"],
-  frameAncestors: ["'none'"],
-};
+export { CONTENT_SECURITY_POLICY };
 
 // Builds the Express app (API, sessions, auth). Shared by the long-running
 // server (server/index.ts) and the Vercel serverless function (api/index.ts).
@@ -123,6 +113,9 @@ export async function createApp() {
 
     next();
   });
+
+  // MCP endpoint and its OAuth sign-in (authenticated with bearer tokens, not the session)
+  registerMcp(app);
 
   // Password protection for everything except login, health and static assets
   app.use(requirePassword);
