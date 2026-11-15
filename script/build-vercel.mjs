@@ -82,6 +82,9 @@ writeFileSync(
         },
         { src: `^/(${FUNCTION_ROUTE})`, dest: "/api" },
         { handle: "filesystem" },
+        // Vercel sends /.well-known/* straight to the filesystem phase, skipping the
+        // routes above, so the OAuth discovery documents need a route here as well
+        { src: "^/\\.well-known/oauth-", dest: "/api" },
         { src: "^/(.*)$", dest: "/index.html" },
       ],
     },
