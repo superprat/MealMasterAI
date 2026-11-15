@@ -53,9 +53,12 @@ writeFileSync(
   ),
 );
 
-// Paths handled by the Express function: the API, health check, MCP endpoint and its OAuth routes
-const FUNCTION_ROUTE =
-  "api/|health$|mcp$|authorize$|token$|register$|revoke$|oauth/|\\.well-known/oauth-";
+// Paths handled by the Express function: the API, health check, MCP endpoint and its OAuth routes.
+// Every alternative must match the whole path: Vercel applies src -> dest as a regex
+// replace, so an unmatched tail would be appended to the destination ("/api/recipes"
+// matched only up to "/api/" became "/apirecipes" and 404'd).
+const FUNCTION_PATHS =
+  "api/.*|health|mcp|authorize|token|register|revoke|oauth/.*|\\.well-known/oauth-.*";
 
 // 3. Routing: API and health check go to the function, everything else is the SPA
 writeFileSync(
@@ -67,7 +70,7 @@ writeFileSync(
         // Security headers for static files (the API sets its own via helmet; keep the CSP in sync with server/app-security.ts).
         // Function routes are excluded: the MCP sign-in page sets its own CSP so it can redirect back to the app.
         {
-          src: `^/(?!${FUNCTION_ROUTE})(.*)$`,
+          src: `^/(?!(?:${FUNCTION_PATHS})$).*$`,
           headers: {
             "Content-Security-Policy":
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -80,7 +83,7 @@ writeFileSync(
           },
           continue: true,
         },
-        { src: `^/(${FUNCTION_ROUTE})`, dest: "/api" },
+        { src: `^/(?:${FUNCTION_PATHS})$`, dest: "/api" },
         { handle: "filesystem" },
         { src: "^/(.*)$", dest: "/index.html" },
       ],
