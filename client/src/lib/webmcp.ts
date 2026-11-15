@@ -9,7 +9,7 @@
 
 import type { MealType, Recipe, WeeklyMealPlan, WeeklyMacros, WeeklyTargets } from "@shared/schema";
 import { queryClient } from "./queryClient";
-import { addDays, dayIndexOf, todayKey, weekStartOf } from "./dates";
+import { addDays, dayIndexOf, isDateKey, todayKey, weekStartOf } from "./dates";
 import { DAY_NAMES } from "./meals";
 
 // ---- Minimal WebMCP typings (the API is still a draft) ----
@@ -86,8 +86,8 @@ async function api<T = unknown>(method: string, url: string, body?: unknown): Pr
 }
 
 function requireDate(value: unknown, field = "date"): string {
-  if (typeof value !== "string" || !new RegExp(DATE_PATTERN).test(value)) {
-    throw new ToolError(`${field} must be a date in YYYY-MM-DD format`);
+  if (!isDateKey(value)) {
+    throw new ToolError(`${field} must be a real date in YYYY-MM-DD format`);
   }
   return value;
 }

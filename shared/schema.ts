@@ -45,6 +45,37 @@ export const weeklyTargets = pgTable("weekly_targets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// OAuth for the MCP endpoint (/mcp). Apps like Claude register themselves as
+// clients, a person approves them with a kitchen password, and the app gets
+// tokens tied to that kitchen. Codes and tokens are stored only as SHA-256 hashes.
+export const oauthClients = pgTable("oauth_clients", {
+  clientId: text("client_id").primaryKey(),
+  info: jsonb("info").notNull(), // the registered client metadata (redirect URIs, name, secret)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const oauthCodes = pgTable("oauth_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  clientId: text("client_id").references(() => oauthClients.clientId, { onDelete: "cascade" }).notNull(),
+  familyId: integer("family_id").references(() => families.id, { onDelete: "cascade" }).notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  scopes: text("scopes").array().notNull(),
+  resource: text("resource"),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const oauthTokens = pgTable("oauth_tokens", {
+  tokenHash: text("token_hash").primaryKey(),
+  kind: text("kind").notNull(), // "access" | "refresh"
+  clientId: text("client_id").references(() => oauthClients.clientId, { onDelete: "cascade" }).notNull(),
+  familyId: integer("family_id").references(() => families.id, { onDelete: "cascade" }).notNull(),
+  scopes: text("scopes").array().notNull(),
+  resource: text("resource"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertFamilySchema = createInsertSchema(families).omit({
   id: true,
   createdAt: true,

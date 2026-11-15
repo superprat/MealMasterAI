@@ -53,6 +53,10 @@ writeFileSync(
   ),
 );
 
+// Paths handled by the Express function: the API, health check, MCP endpoint and its OAuth routes
+const FUNCTION_ROUTE =
+  "api/|health$|mcp$|authorize$|token$|register$|revoke$|oauth/|\\.well-known/oauth-";
+
 // 3. Routing: API and health check go to the function, everything else is the SPA
 writeFileSync(
   path.join(out, "config.json"),
@@ -60,9 +64,10 @@ writeFileSync(
     {
       version: 3,
       routes: [
-        // Security headers for static files (the API sets its own via helmet; keep the CSP in sync with server/app.ts)
+        // Security headers for static files (the API sets its own via helmet; keep the CSP in sync with server/app-security.ts).
+        // Function routes are excluded: the MCP sign-in page sets its own CSP so it can redirect back to the app.
         {
-          src: "^/(?!api/)(.*)$",
+          src: `^/(?!${FUNCTION_ROUTE})(.*)$`,
           headers: {
             "Content-Security-Policy":
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -75,8 +80,7 @@ writeFileSync(
           },
           continue: true,
         },
-        { src: "^/api/(.*)$", dest: "/api" },
-        { src: "^/health$", dest: "/api" },
+        { src: `^/(${FUNCTION_ROUTE})`, dest: "/api" },
         { handle: "filesystem" },
         { src: "^/(.*)$", dest: "/index.html" },
       ],
