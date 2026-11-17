@@ -15,6 +15,7 @@ import { MealType } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { RecipeMediaFields, mediaFormSchema } from "./recipe-media-fields";
 
 const recipeSchema = z.object({
   name: z.string().min(1, "Recipe name is required"),
@@ -25,6 +26,7 @@ const recipeSchema = z.object({
   carbs: z.number().min(0, "Carbs cannot be negative"),
   fats: z.number().min(0, "Fats cannot be negative"),
   maxWeeklyUses: z.number().min(1, "Must allow at least 1 use per week"),
+  ...mediaFormSchema,
 });
 
 type RecipeFormData = z.infer<typeof recipeSchema>;
@@ -56,6 +58,8 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
       carbs: 0,
       fats: 0,
       mealTypes: [],
+      videoUrl: "",
+      imageUrl: "",
     },
   });
 
@@ -198,9 +202,9 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
               <Textarea
                 id="description"
                 {...register("description")}
-                placeholder="A line to jog your memory"
+                placeholder="Ingredients and steps. Leave a blank line between paragraphs."
                 className={errors.description ? "border-destructive" : ""}
-                rows={2}
+                rows={5}
               />
               {errors.description && (
                 <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
@@ -246,9 +250,15 @@ export function AddRecipeModal({ isOpen, onClose }: AddRecipeModalProps) {
               {errors.maxWeeklyUses && (
                 <p className="text-sm text-destructive mt-1">{errors.maxWeeklyUses.message}</p>
               )}
-              <p className="text-xs text-muted-foreground mt-1">Meal suggestions won’t use it more often than this.</p>
+              <p className="text-xs text-muted-foreground mt-1">A guide for how often to plan it. AI assistants warn when a week goes over.</p>
             </div>
           </div>
+
+          <RecipeMediaFields
+            register={register}
+            errors={errors}
+            values={{ name: recipeName, videoUrl: watch("videoUrl") ?? "", imageUrl: watch("imageUrl") ?? "" }}
+          />
 
           {/* Estimate nutrition */}
           <Card className="bg-secondary/60 border-border shadow-none">

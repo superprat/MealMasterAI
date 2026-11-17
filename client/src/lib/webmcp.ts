@@ -116,6 +116,8 @@ function summarizeRecipe(r: Recipe) {
     carbs: r.carbs,
     fats: r.fats,
     maxWeeklyUses: r.maxWeeklyUses,
+    hasVideo: !!r.videoUrl,
+    hasPhoto: !!r.imageUrl,
   };
 }
 
@@ -145,6 +147,15 @@ const recipeFieldsSchema = {
     minimum: 1,
     maximum: 21,
     description: "How many times a week this recipe may be planned. Defaults to 3.",
+  },
+  videoUrl: {
+    type: ["string", "null"],
+    description:
+      "YouTube link to a video showing how to cook this dish. Find a real, matching video and include it, or an imageUrl, whenever you add a recipe. null removes it.",
+  },
+  imageUrl: {
+    type: ["string", "null"],
+    description: "https link straight to a photo of the finished dish (not a web page). null removes it.",
   },
 } as const;
 
@@ -257,7 +268,7 @@ export const tools: WebMcpTool[] = [
   {
     name: "add_recipe",
     description:
-      "Add a recipe to the shared recipe library. Macros are per serving. Fails if a recipe with the same name already exists; the error includes that recipe's id so you can plan it instead.",
+      "Add a recipe to the shared recipe library. Macros are per serving. Put the ingredients and method in description, and include a YouTube videoUrl (preferred) or an imageUrl so the family can see the dish. Fails if a recipe with the same name already exists; the error includes that recipe's id so you can plan it instead.",
     inputSchema: {
       type: "object",
       properties: recipeFieldsSchema,

@@ -162,37 +162,6 @@ test.describe('API Integration', () => {
     expect(typeof targets.familyId).toBe('number');
   });
 
-  test('should generate AI meal plan', async ({ request }) => {
-    // Login first
-    await request.post('/api/auth/login', {
-      data: { password: TEST_PASSWORD }
-    });
-    
-    const requestData = {
-      weekStartDate: '2025-08-04',
-      preferences: [],
-      restrictions: []
-    };
-    
-    const response = await request.post('/api/ai/generate-meal-plan', {
-      data: requestData
-    });
-    
-    expect(response.ok()).toBeTruthy();
-    const suggestions = await response.json();
-    expect(Array.isArray(suggestions)).toBeTruthy();
-    
-    if (suggestions.length > 0) {
-      const firstSuggestion = suggestions[0];
-      expect(firstSuggestion).toHaveProperty('dayOfWeek');
-      expect(firstSuggestion).toHaveProperty('mealType');
-      expect(firstSuggestion).toHaveProperty('reasoning');
-      expect(['suggestedRecipeId', 'newRecipe']).toContain(
-        firstSuggestion.suggestedRecipeId ? 'suggestedRecipeId' : 'newRecipe'
-      );
-    }
-  });
-
   test('should require authentication for protected endpoints', async ({ request }) => {
     // Try accessing protected endpoint without authentication
     const endpoints = [
@@ -200,7 +169,7 @@ test.describe('API Integration', () => {
       '/api/meal-plans/2025-08-04',
       '/api/macros/2025-08-04',
       '/api/targets',
-      '/api/ai/generate-meal-plan'
+      '/api/ai/generate-recipe'
     ];
     
     for (const endpoint of endpoints) {

@@ -104,60 +104,6 @@ test.describe('Frontend Integration Tests - Complete User Workflows', () => {
     await page.screenshot({ path: 'test-results/recipe-selection-interaction.png' });
   });
 
-  test('should test AI suggestions complete workflow', async ({ page }) => {
-    await page.waitForLoadState('networkidle');
-    
-    // 1. Open AI suggestions modal
-    const aiButton = page.locator('button').filter({ hasText: /ai suggestions|get.*suggestions/i });
-    await expect(aiButton).toBeVisible();
-    await aiButton.click();
-    
-    // 2. Verify modal opened
-    const modal = page.locator('[role="dialog"]');
-    await expect(modal).toBeVisible({ timeout: 5000 });
-    await expect(modal.locator('text=AI')).toBeVisible();
-    
-    await page.screenshot({ path: 'test-results/ai-modal-opened.png' });
-    
-    // 3. Generate suggestions
-    const generateButton = modal.locator('button').filter({ hasText: /generate|suggest/i });
-    await expect(generateButton).toBeVisible();
-    await generateButton.click();
-    
-    // 4. Wait for AI response
-    await page.waitForTimeout(2000);
-    const loadingIndicator = modal.locator('text=/loading|generating|thinking/i');
-    if (await loadingIndicator.isVisible({ timeout: 1000 })) {
-      await expect(loadingIndicator).not.toBeVisible({ timeout: 30000 });
-    }
-    
-    // 5. Check for suggestions content
-    await page.waitForTimeout(1000);
-    const suggestionContent = modal.locator('text=/reasoning|suggestion|meal|recipe/i');
-    await expect(suggestionContent.first()).toBeVisible({ timeout: 30000 });
-    
-    await page.screenshot({ path: 'test-results/ai-suggestions-generated.png' });
-    
-    // 6. Test "Different" button functionality
-    const differentButtons = modal.locator('button').filter({ hasText: /different/i });
-    if (await differentButtons.count() > 0) {
-      await differentButtons.first().click();
-      await page.waitForTimeout(2000);
-      
-      await page.screenshot({ path: 'test-results/ai-alternative-suggestion.png' });
-    }
-    
-    // 7. Close modal
-    const closeButton = modal.locator('button').filter({ hasText: /close|cancel|×/i });
-    if (await closeButton.count() > 0) {
-      await closeButton.click();
-    } else {
-      await page.keyboard.press('Escape');
-    }
-    
-    await expect(modal).not.toBeVisible({ timeout: 5000 });
-  });
-
   test('should test responsive design behavior', async ({ page }) => {
     // Test desktop view
     await page.setViewportSize({ width: 1200, height: 800 });

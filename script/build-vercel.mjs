@@ -75,6 +75,7 @@ writeFileSync(
             "Content-Security-Policy":
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
               "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; " +
+              "frame-src https://www.youtube-nocookie.com; " +
               "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
             "X-Content-Type-Options": "nosniff",
             "X-Frame-Options": "DENY",
@@ -94,3 +95,13 @@ writeFileSync(
 );
 
 console.log(`Vercel output written to ${path.relative(root, out)}`);
+
+// 4. Database migrations, last so a broken build never touches the database.
+// Only production builds migrate: preview deployments share the production DATABASE_URL,
+// and an unmerged branch must not change the live schema. If a migration fails the build
+// fails, so the deployment is never promoted and the old one keeps serving.
+if (process.env.VERCEL_ENV === "production") {
+  execSync("node script/migrate.mjs", { cwd: root, stdio: "inherit" });
+} else if (process.env.VERCEL) {
+  console.log(`Skipping database migrations on a ${process.env.VERCEL_ENV ?? "non-production"} build`);
+}

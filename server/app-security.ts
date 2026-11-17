@@ -6,6 +6,8 @@ export const CONTENT_SECURITY_POLICY: Record<string, string[]> & { formAction: s
   fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
   imgSrc: ["'self'", "data:", "https:"],
   connectSrc: ["'self'"],
+  // Recipe how-to videos (cookie-free YouTube embed)
+  frameSrc: ["https://www.youtube-nocookie.com"],
   objectSrc: ["'none'"],
   baseUri: ["'self'"],
   formAction: ["'self'"],

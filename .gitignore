@@ -11,6 +11,7 @@ playwright-report
 
 # Database backups / dumps - never commit (contain family passwords)
 *.sql
+!migrations/*.sql
 *.dump
 mealmaster-backup*
 bk-*

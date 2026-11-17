@@ -24,6 +24,8 @@ import { AppHeader } from "@/components/app-header";
 import { todayKey } from "@/lib/dates";
 import { AddRecipeModal } from "@/components/add-recipe-modal";
 import { EditRecipeModal } from "@/components/edit-recipe-modal";
+import { RecipeDetails, MealTypeChips } from "@/components/recipe-details";
+import { RecipeThumb } from "@/components/recipe-media";
 
 export default function RecipeLibrary() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,6 +35,7 @@ export default function RecipeLibrary() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [deletingRecipe, setDeletingRecipe] = useState<Recipe | null>(null);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -176,29 +179,24 @@ export default function RecipeLibrary() {
 
   const RecipeRow = ({ recipe }: { recipe: Recipe }) => (
     <li className="group grid grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_9rem_repeat(4,4.5rem)_5rem] items-center gap-x-4 gap-y-2 px-4 py-3.5 hover:bg-accent/50 transition-colors">
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="font-medium text-foreground">{recipe.name}</span>
-          {recipe.isAiSuggested && (
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">From suggestions</span>
+      <button
+        type="button"
+        onClick={() => setViewingRecipe(recipe)}
+        className="min-w-0 flex items-center gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-testid={`button-view-recipe-${recipe.id}`}
+      >
+        <RecipeThumb recipe={recipe} className="h-12 w-12" />
+        <span className="min-w-0">
+          <span className="block font-medium text-foreground underline-offset-2 group-hover:underline">{recipe.name}</span>
+          {recipe.description && (
+            <span className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{recipe.description}</span>
           )}
-        </div>
-        {recipe.description && (
-          <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{recipe.description}</p>
-        )}
-      </div>
+        </span>
+      </button>
 
-      <div className="flex items-center gap-1 md:order-none order-last col-span-2 md:col-span-1 flex-wrap">
+      <div className="flex items-center gap-1 md:order-none order-last col-span-2 md:col-span-1 flex-wrap pl-[3.75rem] md:pl-0">
         {recipe.mealTypes?.length ? (
-          MEAL_TYPES.filter((m) => recipe.mealTypes.includes(m.type)).map((m) => (
-            <span
-              key={m.type}
-              className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-foreground/80", m.soft)}
-            >
-              <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} aria-hidden />
-              {m.label}
-            </span>
-          ))
+          <MealTypeChips mealTypes={recipe.mealTypes} />
         ) : (
           <span className="text-xs text-muted-foreground">No meal type</span>
         )}
@@ -247,7 +245,7 @@ export default function RecipeLibrary() {
         </Button>
       </div>
 
-      <p className="md:hidden col-span-2 text-xs text-muted-foreground tabular -mt-1">
+      <p className="md:hidden col-span-2 pl-[3.75rem] text-xs text-muted-foreground tabular -mt-1">
         {formatNumber(recipe.calories)} cal · {recipe.protein}g protein · {recipe.carbs}g carbs · {recipe.fats}g fat
       </p>
     </li>
@@ -431,6 +429,15 @@ export default function RecipeLibrary() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <RecipeDetails
+        recipe={viewingRecipe}
+        onClose={() => setViewingRecipe(null)}
+        onEdit={(recipe) => {
+          setViewingRecipe(null);
+          setEditingRecipe(recipe);
+          setShowEditModal(true);
+        }}
+      />
       <AddRecipeModal 
         isOpen={showAddModal} 
         onClose={() => setShowAddModal(false)} 

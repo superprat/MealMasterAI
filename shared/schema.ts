@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { isHttpsUrl, isYouTubeUrl } from "./media";
 
 export const families = pgTable("families", {
   id: serial("id").primaryKey(),
@@ -13,7 +14,8 @@ export const recipes = pgTable("recipes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  imageUrl: text("image_url"),
+  imageUrl: text("image_url"), // https link to a photo of the dish
+  videoUrl: text("video_url"), // YouTube link showing how to make it
   calories: integer("calories").notNull(),
   protein: integer("protein").notNull(), // in grams
   carbs: integer("carbs").notNull(), // in grams
@@ -81,7 +83,17 @@ export const insertFamilySchema = createInsertSchema(families).omit({
   createdAt: true,
 });
 
-export const insertRecipeSchema = createInsertSchema(recipes).omit({
+// Blank strings from forms mean "no photo / no video"
+const optionalLink = (check: (url: string) => boolean, message: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : typeof v === "string" ? v.trim() : v),
+    z.string().max(2000).refine(check, message).nullable().optional(),
+  );
+
+export const insertRecipeSchema = createInsertSchema(recipes, {
+  imageUrl: () => optionalLink(isHttpsUrl, "Photo must be an https:// link"),
+  videoUrl: () => optionalLink(isYouTubeUrl, "Video must be a YouTube link"),
+}).omit({
   id: true,
   createdAt: true,
 });

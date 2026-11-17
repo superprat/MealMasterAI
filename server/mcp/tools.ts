@@ -6,6 +6,7 @@ import { db } from "../db";
 import { storage } from "../storage";
 import { families, type MealType, type Recipe } from "../../shared/schema";
 import { addDays, dayIndexOf, DAY_NAMES, isDateKey, weekStartOf } from "../../shared/dates";
+import { isHttpsUrl, isYouTubeUrl } from "../../shared/media";
 
 const MEAL_TYPES = ["breakfast", "lunch", "snack", "dinner"] as const;
 
@@ -47,6 +48,24 @@ const recipeFields = {
   carbs: z.number().int().min(0).max(1000).describe("Carbohydrates per serving, in grams."),
   fats: z.number().int().min(0).max(1000).describe("Fat per serving, in grams."),
   mealTypes: z.array(mealTypeField).min(1).describe("Which meals this recipe suits."),
+  videoUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine(isYouTubeUrl, "Must be a YouTube video link")
+    .nullable()
+    .optional()
+    .describe(
+      "YouTube link to a video showing how to cook this dish (youtube.com/watch?v=..., youtu.be/... or /shorts/...). Find a real, matching video and include it, or an imageUrl, whenever you add a recipe. null removes it.",
+    ),
+  imageUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine(isHttpsUrl, "Must be an https:// link")
+    .nullable()
+    .optional()
+    .describe("https link straight to a photo of the finished dish (not a web page). null removes it."),
   maxWeeklyUses: z
     .number()
     .int()
@@ -66,6 +85,8 @@ function summarizeRecipe(r: Recipe) {
     carbs: r.carbs,
     fats: r.fats,
     maxWeeklyUses: r.maxWeeklyUses,
+    hasVideo: !!r.videoUrl,
+    hasPhoto: !!r.imageUrl,
   };
 }
 
@@ -150,7 +171,7 @@ export function createKitchenMcpServer(familyId: number): McpServer {
     {
       title: "Add recipe",
       description:
-        "Add a recipe to the shared recipe library. Macros are per serving. Refused if a recipe with the same name exists; the error gives that recipe's id so you can plan it instead.",
+        "Add a recipe to the shared recipe library. Macros are per serving. Put the ingredients and method in description, and include a YouTube videoUrl (preferred) or an imageUrl so the family can see the dish. Refused if a recipe with the same name exists; the error gives that recipe's id so you can plan it instead.",
       inputSchema: recipeFields,
     },
     handled("add_recipe", async (input) => {

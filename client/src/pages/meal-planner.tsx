@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChefHat } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { MealCalendar } from "@/components/meal-calendar";
-import { AIRecommendationModal } from "@/components/ai-recommendation-modal";
 import { formatNumber } from "@/lib/utils";
 import { addDays, formatShortDate, getDisplayDays, parseDateKey, todayKey } from "@/lib/dates";
 import { MEAL_TYPES } from "@/lib/meals";
@@ -25,7 +24,6 @@ function formatPeriod(startDate: string): string {
 
 export default function MealPlanner() {
   const [viewStartDate, setViewStartDate] = useState(todayKey());
-  const [showAIModal, setShowAIModal] = useState(false);
 
   // The visible days can span two Monday-based weeks; fetch both
   const displayDays = getDisplayDays(viewStartDate, DAYS_SHOWN);
@@ -119,11 +117,6 @@ export default function MealPlanner() {
                 <ChevronRight />
               </Button>
             </div>
-
-            <Button onClick={() => setShowAIModal(true)} className="ml-auto sm:ml-0" data-testid="button-suggest-meals">
-              <ChefHat />
-              Suggest meals
-            </Button>
           </div>
         </div>
 
@@ -141,12 +134,6 @@ export default function MealPlanner() {
           </p>
         )}
       </main>
-
-      <AIRecommendationModal
-        isOpen={showAIModal}
-        onClose={() => setShowAIModal(false)}
-        weekStartDate={weekStartForAPI}
-      />
     </div>
   );
 }
