@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn, formatNumber } from "@/lib/utils";
 import { MEAL_TYPE_STYLE } from "@/lib/meals";
+import { RecipeDetails } from "./recipe-details";
 
 interface MealCardProps {
   weekStartDate: string;
@@ -27,6 +28,7 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
   const [showRecipeSelector, setShowRecipeSelector] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDraggedOver, setIsDraggedOver] = useState(false);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const mealLabel = MEAL_TYPE_STYLE[mealType].label.toLowerCase();
 
   const { data: availableRecipes } = useQuery<Recipe[]>({
@@ -272,14 +274,24 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
               {recipes.map((recipe) => (
                 <div
                   key={recipe.id}
-                  className="group/recipe relative rounded-md bg-background border border-border px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-foreground/20 transition-colors"
+                  className="group/recipe relative rounded-md bg-background border border-border px-2.5 py-2 cursor-pointer active:cursor-grabbing hover:border-foreground/20 transition-colors"
                   draggable
                   onDragStart={(e) => handleDragStart(e, recipe)}
                 >
-                  <div className="pr-6 text-sm font-medium leading-snug text-foreground break-words">{recipe.name}</div>
-                  <div className="text-xs text-muted-foreground tabular mt-0.5">
-                    {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setViewingRecipe(recipe)}
+                    className="block w-full pr-6 text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`See how to make ${recipe.name}`}
+                    data-testid={`button-view-recipe-${recipe.id}`}
+                  >
+                    <span className="block text-sm font-medium leading-snug text-foreground break-words underline-offset-2 group-hover/recipe:underline">
+                      {recipe.name}
+                    </span>
+                    <span className="block text-xs text-muted-foreground tabular mt-0.5">
+                      {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
+                    </span>
+                  </button>
                   <button
                     type="button"
                     className="absolute top-1.5 right-1.5 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring opacity-100 sm:opacity-0 sm:group-hover/recipe:opacity-100 sm:focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
@@ -314,6 +326,8 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
       <PopoverContent align="start" className="w-80 p-3" onOpenAutoFocus={(e) => e.preventDefault()}>
         {renderRecipePicker("desktop")}
       </PopoverContent>
+
+      <RecipeDetails recipe={viewingRecipe} onClose={() => setViewingRecipe(null)} />
 
       {isMobile && (
         <Sheet open={showRecipeSelector} onOpenChange={(open) => !open && closeRecipeSelector()}>

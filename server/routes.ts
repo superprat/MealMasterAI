@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertRecipeSchema, insertMealPlanSchema, insertWeeklyTargetsSchema } from "../shared/schema";
-import { generateMealPlanSuggestions, generateNewRecipe, generateAlternativeSuggestion } from "./services/anthropic";
+import { generateNewRecipe } from "./services/anthropic";
 import { handleLogin, handleLogout, loginRateLimit } from "./auth-middleware";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { z } from "zod";
@@ -71,6 +71,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recipes: recipes.map(recipe => ({
           name: recipe.name,
           description: recipe.description,
+          imageUrl: recipe.imageUrl,
+          videoUrl: recipe.videoUrl,
           calories: recipe.calories,
           protein: recipe.protein,
           carbs: recipe.carbs,
@@ -311,76 +313,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid targets data", errors: error.issues });
       }
       res.status(500).json({ message: "Failed to update targets" });
-    }
-  });
-
-  // AI-powered meal planning
-  app.post("/api/ai/generate-meal-plan", async (req, res) => {
-    try {
-      const { weekStartDate, preferences, restrictions } = req.body;
-      
-      // Get current meal plan and targets
-      const familyId = (req as any).familyId;
-      const currentMealPlan = await storage.getMealPlansForWeek(familyId, weekStartDate);
-      const availableRecipes = await storage.getRecipes();
-      const targets = await storage.getWeeklyTargets(familyId);
-      
-      const suggestions = await generateMealPlanSuggestions({
-        currentWeekPlan: currentMealPlan,
-        availableRecipes: availableRecipes.filter(r => r.isApproved),
-        dailyTargets: {
-          calories: targets.dailyCalories,
-          protein: targets.dailyProtein,
-          carbs: targets.dailyCarbs,
-          fats: targets.dailyFats,
-        },
-        preferences,
-        restrictions,
-      });
-      
-      res.json(suggestions);
-    } catch (error) {
-      console.error('AI meal plan generation error:', error);
-      res.status(500).json({ message: "Failed to generate meal plan suggestions" });
-    }
-  });
-
-  // Get alternative suggestion for a specific meal slot
-  app.post("/api/ai/alternative-suggestion", async (req, res) => {
-    try {
-      const { weekStartDate, dayOfWeek, mealType, excludeRecipes, preferences, restrictions } = req.body;
-      
-      // Get current meal plan and targets
-      const familyId = (req as any).familyId;
-      const currentMealPlan = await storage.getMealPlansForWeek(familyId, weekStartDate);
-      const availableRecipes = await storage.getRecipes();
-      const targets = await storage.getWeeklyTargets(familyId);
-      
-      // Filter out excluded recipes (previously suggested ones)
-      const excluded: number[] = Array.isArray(excludeRecipes) ? excludeRecipes : [];
-      const filteredRecipes = availableRecipes.filter(r => 
-        r.isApproved && !excluded.includes(r.id)
-      );
-      
-      const suggestion = await generateAlternativeSuggestion({
-        dayOfWeek,
-        mealType,
-        currentWeekPlan: currentMealPlan,
-        availableRecipes: filteredRecipes,
-        dailyTargets: {
-          calories: targets.dailyCalories,
-          protein: targets.dailyProtein,
-          carbs: targets.dailyCarbs,
-          fats: targets.dailyFats,
-        },
-        preferences,
-        restrictions,
-      });
-      
-      res.json(suggestion);
-    } catch (error) {
-      console.error('AI alternative suggestion error:', error);
-      res.status(500).json({ message: "Failed to generate alternative suggestion" });
     }
   });
 

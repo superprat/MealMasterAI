@@ -1,10 +1,10 @@
 # MealMasterAI
 
-A family meal planner. Plan breakfast, lunch, snack and dinner in a rolling 4‑day view, track calories and macros against daily targets, keep a shared recipe library, and ask Claude for meal suggestions.
+A family meal planner. Plan breakfast, lunch, snack and dinner in a rolling 4‑day view, track calories and macros against daily targets, and keep a shared recipe library with photos, how-to videos and methods you can open straight from the plan.
 
 Each family logs in with its own password and sees only its own meal plans and targets. The recipe library is shared by all families.
 
-**Stack:** React + Vite + Tailwind/shadcn on the front end, Express + Drizzle ORM on the back end, PostgreSQL for storage, Anthropic Claude for AI suggestions.
+**Stack:** React + Vite + Tailwind/shadcn on the front end, Express + Drizzle ORM on the back end, PostgreSQL for storage, Anthropic Claude for nutrition estimates.
 
 ## Run locally
 
@@ -15,7 +15,8 @@ npm install
 cp .env.example .env    # then fill in the values
 docker run -d --name mealmaster-pg -e POSTGRES_PASSWORD=localdev -e POSTGRES_DB=mealmaster -p 54329:5432 postgres:16
 export $(grep -v '^#' .env | xargs)
-npm run db:push         # create tables
+npm run db:push         # create tables (fresh local database only)
+npm run db:migrate      # record the migrations as applied
 npx tsx server/seed-database.ts   # optional: sample recipes + families from SEED_FAMILIES
 npm run dev             # http://localhost:5000
 ```
@@ -28,7 +29,7 @@ On macOS, port 5000 is often taken by AirPlay Receiver. Set `PORT=5050` if it is
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Postgres connection string. Neon URLs use Neon's driver; anything else uses node-postgres. |
 | `SESSION_SECRET` | yes in production | Long random string used to sign login cookies. |
-| `ANTHROPIC_API_KEY` | for AI features | Enables “Generate Plan” and AI recipe macros. |
+| `ANTHROPIC_API_KEY` | for AI features | Enables “Estimate with AI” nutrition on the recipe forms. |
 | `ANTHROPIC_MODEL` | no | Overrides the Claude model (default `claude-haiku-5-5`). |
 | `SEED_FAMILIES` | no | `Name:password,Other:password2`. Used only by the seed script. |
 | `PUBLIC_URL` | recommended in production | The app's public address, e.g. `https://mealmaster.example.com`. Used in the MCP sign-in links; without it they follow the request's host. |
@@ -56,9 +57,21 @@ Backups contain family passwords. Never commit them; `*.sql` is ignored by git.
    psql "<neon url>" < mealmaster-backup.sql        # restore your data
    DATABASE_URL="<neon url>" npm run db:push         # or: start with empty tables
    ```
-5. Redeploy. Every push to `main` deploys automatically after that.
+5. Redeploy. Every push to `main` deploys to production automatically after that.
 
-When a change adds database tables (such as the MCP sign-in tables), run `DATABASE_URL="<neon url>" npm run db:push` once before or right after deploying it.
+### Database migrations run on deploy
+
+Schema changes ship as SQL files in `migrations/` and apply themselves: the production build (`VERCEL_ENV=production`, i.e. a push to `main`) runs `node script/migrate.mjs` after the app has built. It applies, in name order, each file not yet recorded in the `schema_migrations` table, one transaction per file, under an advisory lock. If a migration fails, the build fails and the previous deployment keeps serving.
+
+Preview builds never migrate, because preview deployments use the production database.
+
+To change the schema:
+
+1. Edit `shared/schema.ts`.
+2. Add the next file, e.g. `migrations/0002_add_servings.sql`, with the SQL by hand. Keep it additive and re-runnable (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`): the old deployment keeps running against the new schema until the new one is live, so don't drop or rename a column in the same change that stops using it.
+3. Merge to `main`.
+
+`npm run db:migrate -- --dry` lists pending migrations without running them. Don't use `npm run db:push` against production: the live database has a login `session` table that isn't in `shared/schema.ts`, and push would drop it.
 
 ### Any Node host
 
@@ -102,7 +115,7 @@ An agent can work in a kitchen two ways:
 | `add_meal_to_plan`, `remove_meal_from_plan` | Plan or unplan a recipe for a date and meal (warns when a recipe goes over its weekly limit) |
 | `update_daily_targets` | Change the kitchen's daily calorie and macro targets |
 
-Dates are `YYYY-MM-DD`. Agents never deal with week starts or day numbers. Deleting recipes and the paid AI suggestion endpoints are deliberately not exposed: recipes are shared by every kitchen, and the agent is already an AI.
+Dates are `YYYY-MM-DD`. Agents never deal with week starts or day numbers. Deleting recipes is deliberately not exposed, because recipes are shared by every kitchen. `add_recipe` asks agents to include a YouTube `videoUrl` or an `imageUrl` with every new recipe.
 
 WebMCP is still a draft. Browsers without `navigator.modelContext` skip registration, so nothing changes for normal visitors. To try it, use a browser or extension that provides `navigator.modelContext` (for example Chrome's WebMCP preview flag or the MCP-B extension).
 
