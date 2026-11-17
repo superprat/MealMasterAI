@@ -13,6 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn, formatNumber } from "@/lib/utils";
 import { MEAL_TYPE_STYLE } from "@/lib/meals";
 import { RecipeDetails } from "./recipe-details";
+import { RecipeThumb, recipePictureUrl } from "./recipe-media";
 
 interface MealCardProps {
   weekStartDate: string;
@@ -274,27 +275,32 @@ export function MealCard({ weekStartDate, dayOfWeek, mealType, recipes = [] }: M
               {recipes.map((recipe) => (
                 <div
                   key={recipe.id}
-                  className="group/recipe relative rounded-md bg-background border border-border px-2.5 py-2 cursor-pointer active:cursor-grabbing hover:border-foreground/20 transition-colors"
+                  className="group/recipe relative overflow-hidden rounded-md bg-background border border-border cursor-pointer active:cursor-grabbing hover:border-foreground/20 transition-colors"
                   draggable
                   onDragStart={(e) => handleDragStart(e, recipe)}
                 >
                   <button
                     type="button"
                     onClick={() => setViewingRecipe(recipe)}
-                    className="block w-full pr-6 text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     aria-label={`See how to make ${recipe.name}`}
                     data-testid={`button-view-recipe-${recipe.id}`}
                   >
+                    {recipePictureUrl(recipe) && (
+                      <RecipeThumb recipe={recipe} showVideoBadge className="w-full aspect-video rounded-none" />
+                    )}
+                    <span className={cn("block px-2.5 py-2", !recipePictureUrl(recipe) && "pr-8")}>
                     <span className="block text-sm font-medium leading-snug text-foreground break-words underline-offset-2 group-hover/recipe:underline">
                       {recipe.name}
                     </span>
                     <span className="block text-xs text-muted-foreground tabular mt-0.5">
                       {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
                     </span>
+                    </span>
                   </button>
                   <button
                     type="button"
-                    className="absolute top-1.5 right-1.5 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring opacity-100 sm:opacity-0 sm:group-hover/recipe:opacity-100 sm:focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 h-7 w-7 rounded-md flex items-center justify-center bg-background/90 text-muted-foreground shadow-[0_1px_2px_rgb(0_0_0/0.15)] hover:text-destructive hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring opacity-100 sm:opacity-0 sm:group-hover/recipe:opacity-100 sm:focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                     onClick={() => removeRecipeMutation.mutate(recipe)}
                     aria-label={`Remove ${recipe.name}`}
                     data-testid={`button-remove-recipe-${recipe.id}`}

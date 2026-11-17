@@ -1,4 +1,4 @@
-import { ExternalLink, Pencil, Youtube } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Youtube } from "lucide-react";
 import type { Recipe } from "@shared/schema";
 import { youTubeSearchUrl, youTubeVideoId, youTubeWatchUrl } from "@shared/media";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,13 @@ interface RecipeDetailsProps {
   onClose: () => void;
   // Shown as an Edit button when given (the recipe library passes it; the planner doesn't)
   onEdit?: (recipe: Recipe) => void;
+  onDelete?: (recipe: Recipe) => void;
 }
 
 export function MealTypeChips({ mealTypes }: { mealTypes: string[] }) {
+  // A span so it can sit inside buttons (the library cards)
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <span className="flex flex-wrap items-center gap-1">
       {MEAL_TYPES.filter((m) => mealTypes.includes(m.type)).map((m) => (
         <span
           key={m.type}
@@ -28,7 +30,7 @@ export function MealTypeChips({ mealTypes }: { mealTypes: string[] }) {
           {m.label}
         </span>
       ))}
-    </div>
+    </span>
   );
 }
 
@@ -46,7 +48,7 @@ function Method({ text }: { text: string }) {
   );
 }
 
-function RecipeBody({ recipe, onEdit }: { recipe: Recipe; onEdit?: (recipe: Recipe) => void }) {
+function RecipeBody({ recipe, onEdit, onDelete }: Omit<RecipeDetailsProps, "onClose"> & { recipe: Recipe }) {
   const videoId = youTubeVideoId(recipe.videoUrl);
   const macros = [
     { label: "Calories", value: formatNumber(recipe.calories), unit: "" },
@@ -99,9 +101,21 @@ function RecipeBody({ recipe, onEdit }: { recipe: Recipe; onEdit?: (recipe: Reci
           </Button>
         )}
         {onEdit && (
-          <Button variant="ghost" size="sm" onClick={() => onEdit(recipe)} data-testid="button-edit-from-details">
+          <Button variant="ghost" size="sm" onClick={() => onEdit(recipe)} data-testid={`button-edit-recipe-${recipe.id}`}>
             <Pencil />
             Edit recipe
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="sm:ml-auto text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(recipe)}
+            data-testid={`button-delete-recipe-${recipe.id}`}
+          >
+            <Trash2 />
+            Delete
           </Button>
         )}
       </div>
@@ -111,7 +125,7 @@ function RecipeBody({ recipe, onEdit }: { recipe: Recipe; onEdit?: (recipe: Reci
 
 // Everything about one recipe: photo or video, macros and the method.
 // A dialog on larger screens and a bottom sheet on phones, like the planner's recipe picker.
-export function RecipeDetails({ recipe, onClose, onEdit }: RecipeDetailsProps) {
+export function RecipeDetails({ recipe, onClose, onEdit, onDelete }: RecipeDetailsProps) {
   const isMobile = useIsMobile();
   const open = recipe !== null;
   const onOpenChange = (next: boolean) => !next && onClose();
@@ -130,7 +144,7 @@ export function RecipeDetails({ recipe, onClose, onEdit }: RecipeDetailsProps) {
                   </div>
                 </SheetDescription>
               </SheetHeader>
-              <RecipeBody recipe={recipe} onEdit={onEdit} />
+              <RecipeBody recipe={recipe} onEdit={onEdit} onDelete={onDelete} />
             </>
           )}
         </SheetContent>
@@ -151,7 +165,7 @@ export function RecipeDetails({ recipe, onClose, onEdit }: RecipeDetailsProps) {
                 </div>
               </DialogDescription>
             </DialogHeader>
-            <RecipeBody recipe={recipe} onEdit={onEdit} />
+            <RecipeBody recipe={recipe} onEdit={onEdit} onDelete={onDelete} />
           </>
         )}
       </DialogContent>
