@@ -13,16 +13,28 @@ export function recipePictureUrl(recipe: MediaRecipe): string | null {
   return videoId ? youTubeThumbnailUrl(videoId) : null;
 }
 
-// Small square picture for lists. Falls back to a plain plate icon when there is no
-// picture or it fails to load, so rows keep the same shape either way.
-export function RecipeThumb({ recipe, className }: { recipe: MediaRecipe; className?: string }) {
+// The recipe's picture at any size: give it a size or aspect ratio through className.
+// Falls back to a plain plate icon when there is no picture or it fails to load, so
+// lists keep the same shape either way. YouTube thumbnails are 4:3 with letterbox bars;
+// object-cover in a 16:9 box crops the bars away.
+export function RecipeThumb({
+  recipe,
+  className,
+  showVideoBadge = false,
+}: {
+  recipe: MediaRecipe;
+  className?: string;
+  // A small play mark in the corner when the recipe has a video
+  showVideoBadge?: boolean;
+}) {
   const src = recipePictureUrl(recipe);
   const [failed, setFailed] = useState<string | null>(null);
   const show = src && failed !== src;
+  const hasVideo = !!youTubeVideoId(recipe.videoUrl);
 
   return (
     <div
-      className={cn("shrink-0 overflow-hidden rounded-md bg-muted flex items-center justify-center", className)}
+      className={cn("relative shrink-0 overflow-hidden rounded-md bg-muted flex items-center justify-center", className)}
       aria-hidden
     >
       {show ? (
@@ -36,7 +48,12 @@ export function RecipeThumb({ recipe, className }: { recipe: MediaRecipe; classN
           onError={() => setFailed(src)}
         />
       ) : (
-        <UtensilsCrossed className="h-1/3 w-1/3 text-muted-foreground/60" />
+        <UtensilsCrossed className="h-8 w-8 max-h-[33%] max-w-[33%] text-muted-foreground/50" />
+      )}
+      {showVideoBadge && hasVideo && show && (
+        <span className="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+          <Play className="ml-px h-3.5 w-3.5 fill-current" />
+        </span>
       )}
     </div>
   );

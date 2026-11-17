@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, Download, Upload } from "lucide-react";
+import { Plus, Search, Download, Upload } from "lucide-react";
 import { Recipe, MealType } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,8 @@ import { AddRecipeModal } from "@/components/add-recipe-modal";
 import { EditRecipeModal } from "@/components/edit-recipe-modal";
 import { RecipeDetails, MealTypeChips } from "@/components/recipe-details";
 import { RecipeThumb } from "@/components/recipe-media";
+
+const RECIPE_GRID = "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4";
 
 export default function RecipeLibrary() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -177,77 +179,27 @@ export default function RecipeLibrary() {
 
   const hasFilters = searchTerm !== "" || selectedMealType !== "all";
 
-  const RecipeRow = ({ recipe }: { recipe: Recipe }) => (
-    <li className="group grid grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_9rem_repeat(4,4.5rem)_5rem] items-center gap-x-4 gap-y-2 px-4 py-3.5 hover:bg-accent/50 transition-colors">
+  // A photo card per recipe; edit and delete live in the recipe details it opens
+  const RecipeCard = ({ recipe }: { recipe: Recipe }) => (
+    <li>
       <button
         type="button"
         onClick={() => setViewingRecipe(recipe)}
-        className="min-w-0 flex items-center gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         data-testid={`button-view-recipe-${recipe.id}`}
       >
-        <RecipeThumb recipe={recipe} className="h-12 w-12" />
-        <span className="min-w-0">
-          <span className="block font-medium text-foreground underline-offset-2 group-hover:underline">{recipe.name}</span>
-          {recipe.description && (
-            <span className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{recipe.description}</span>
-          )}
+        <RecipeThumb recipe={recipe} showVideoBadge className="w-full aspect-[4/3] sm:aspect-video rounded-none" />
+        <span className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
+          <span className="text-sm sm:text-base font-medium leading-snug text-foreground line-clamp-2 underline-offset-2 group-hover:underline">
+            {recipe.name}
+          </span>
+          {recipe.mealTypes?.length ? <MealTypeChips mealTypes={recipe.mealTypes} /> : null}
+          <span className="mt-auto text-xs text-muted-foreground tabular">
+            {formatNumber(recipe.calories)} cal · {recipe.protein}g protein
+            <span className="hidden sm:inline"> · {recipe.carbs}g carbs · {recipe.fats}g fat</span>
+          </span>
         </span>
       </button>
-
-      <div className="flex items-center gap-1 md:order-none order-last col-span-2 md:col-span-1 flex-wrap pl-[3.75rem] md:pl-0">
-        {recipe.mealTypes?.length ? (
-          <MealTypeChips mealTypes={recipe.mealTypes} />
-        ) : (
-          <span className="text-xs text-muted-foreground">No meal type</span>
-        )}
-      </div>
-
-      <dl className="contents tabular text-sm">
-        {[
-          { label: "Calories", value: formatNumber(recipe.calories), unit: "" },
-          { label: "Protein", value: recipe.protein, unit: "g" },
-          { label: "Carbs", value: recipe.carbs, unit: "g" },
-          { label: "Fat", value: recipe.fats, unit: "g" },
-        ].map((m) => (
-          <div key={m.label} className="hidden md:block text-right">
-            <dt className="sr-only">{m.label}</dt>
-            <dd className="text-foreground">
-              {m.value}
-              <span className="text-muted-foreground">{m.unit}</span>
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      <div className="flex justify-end gap-0.5 row-start-1 col-start-2 md:row-auto md:col-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            setEditingRecipe(recipe);
-            setShowEditModal(true);
-          }}
-          aria-label={`Edit ${recipe.name}`}
-          data-testid={`button-edit-recipe-${recipe.id}`}
-        >
-          <Pencil />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={() => setDeletingRecipe(recipe)}
-          aria-label={`Delete ${recipe.name}`}
-          data-testid={`button-delete-recipe-${recipe.id}`}
-        >
-          <Trash2 />
-        </Button>
-      </div>
-
-      <p className="md:hidden col-span-2 pl-[3.75rem] text-xs text-muted-foreground tabular -mt-1">
-        {formatNumber(recipe.calories)} cal · {recipe.protein}g protein · {recipe.carbs}g carbs · {recipe.fats}g fat
-      </p>
     </li>
   );
 
@@ -350,11 +302,14 @@ export default function RecipeLibrary() {
         </div>
 
         {isLoading ? (
-          <div className="rounded-xl border border-border bg-card divide-y divide-border" aria-busy="true">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="px-4 py-4 space-y-2">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-3 w-1/2" />
+          <div className={RECIPE_GRID} aria-busy="true">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-xl border border-border bg-card">
+                <Skeleton className="w-full aspect-[4/3] sm:aspect-video rounded-none" />
+                <div className="space-y-2 p-3 sm:p-4">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
               </div>
             ))}
           </div>
@@ -389,22 +344,11 @@ export default function RecipeLibrary() {
             )}
           </div>
         ) : (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_9rem_repeat(4,4.5rem)_5rem] gap-x-4 px-4 py-2.5 border-b border-border bg-muted/50 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <span>Recipe</span>
-              <span>Meals</span>
-              <span className="text-right">Cal</span>
-              <span className="text-right">Protein</span>
-              <span className="text-right">Carbs</span>
-              <span className="text-right">Fat</span>
-              <span className="sr-only">Actions</span>
-            </div>
-            <ul className="divide-y divide-border">
-              {filteredRecipes.map((recipe) => (
-                <RecipeRow key={recipe.id} recipe={recipe} />
-              ))}
-            </ul>
-          </div>
+          <ul className={RECIPE_GRID}>
+            {filteredRecipes.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} />
+            ))}
+          </ul>
         )}
       </main>
 
@@ -436,6 +380,10 @@ export default function RecipeLibrary() {
           setViewingRecipe(null);
           setEditingRecipe(recipe);
           setShowEditModal(true);
+        }}
+        onDelete={(recipe) => {
+          setViewingRecipe(null);
+          setDeletingRecipe(recipe);
         }}
       />
       <AddRecipeModal 
