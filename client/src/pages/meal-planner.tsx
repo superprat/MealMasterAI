@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { MealCalendar } from "@/components/meal-calendar";
+import { ConnectClaudeDialog, ConnectClaudeHint } from "@/components/connect-claude";
 import { formatNumber } from "@/lib/utils";
 import { addDays, formatShortDate, getDisplayDays, parseDateKey, todayKey } from "@/lib/dates";
 import { MEAL_TYPES } from "@/lib/meals";
@@ -24,6 +25,7 @@ function formatPeriod(startDate: string): string {
 
 export default function MealPlanner() {
   const [viewStartDate, setViewStartDate] = useState(todayKey());
+  const [showConnect, setShowConnect] = useState(false);
 
   // The visible days can span two Monday-based weeks; fetch both
   const displayDays = getDisplayDays(viewStartDate, DAYS_SHOWN);
@@ -69,6 +71,7 @@ export default function MealPlanner() {
       <AppHeader />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <ConnectClaudeHint onOpen={() => setShowConnect(true)} />
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between mb-6 sm:mb-8">
           <div>
             <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-tight" data-testid="text-period">
@@ -134,6 +137,7 @@ export default function MealPlanner() {
           </p>
         )}
       </main>
+      <ConnectClaudeDialog open={showConnect} onOpenChange={setShowConnect} />
     </div>
   );
 }

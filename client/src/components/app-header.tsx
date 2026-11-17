@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { LogOut } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { ConnectClaudeDialog } from "./connect-claude";
 
 const NAV = [
   { href: "/", label: "Planner" },
@@ -18,6 +20,7 @@ export function AppHeader() {
     queryKey: ["/api/auth/session"],
   });
   const familyName = sessionInfo?.family?.name;
+  const [showConnect, setShowConnect] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -67,6 +70,17 @@ export function AppHeader() {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setShowConnect(true)}
+            aria-label="Connect Claude"
+            className="text-muted-foreground hover:text-foreground px-2 sm:px-3"
+            data-testid="button-connect-claude"
+          >
+            <Sparkles />
+            <span className="hidden sm:inline">Connect Claude</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleLogout}
             aria-label="Sign out"
             className="text-muted-foreground hover:text-foreground px-2 sm:px-3"
@@ -77,6 +91,7 @@ export function AppHeader() {
           </Button>
         </div>
       </div>
+      <ConnectClaudeDialog open={showConnect} onOpenChange={setShowConnect} />
     </header>
   );
 }
